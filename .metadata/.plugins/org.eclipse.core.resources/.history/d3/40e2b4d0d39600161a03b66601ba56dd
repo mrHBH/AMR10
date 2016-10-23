@@ -1,0 +1,28 @@
+package parkingRobot.hsamr0.Navigation;
+
+import lejos.robotics.navigation.Pose;
+
+public abstract class Straight {
+	private Straight followingStraight;
+	private Pose startPose;
+	private Pose endPose;
+	
+	/**
+	 * sets both the params for the following straight and the turn direction to null; those have to be set later
+	 */
+	public Straight(Pose startPose){
+		this.startPose = startPose;
+		this.followingStraight = null;
+		this.endPose = null;
+		
+	}
+	/**
+	 * sets the following straight if it wasnt set before
+	 * @param fS
+	 * @param tD
+	 */
+	public void setFollowingStraight(Straight followingStraight){
+		if(followingStraight == null)
+			this.followingStraight = followingStraight;
+	}
+}

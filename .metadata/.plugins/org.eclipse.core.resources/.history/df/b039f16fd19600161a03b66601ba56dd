@@ -1,0 +1,33 @@
+package parkingRobot.hsamr0.Navigation;
+
+public class NavigationHandler {
+
+	private Straight currentStraight;
+	
+	private Straight initCourse(){
+		StraightParking s1 = new StraightParking(); //long straight at the x-axis
+		StraightParking s2 = new StraightParking(); //middle long straight parallel to y-axis at the very right
+		StraightEmpty s3 = new StraightEmpty(); //short straight at the top right parallel to x-axis
+		StraightEmpty s4 = new StraightEmpty(); //short straight downwards at the right parallel to y-axis
+		StraightParking s5 = new StraightParking(); //middle long straight parallel to x-axis at the top
+		StraightEmpty s6 = new StraightEmpty(); //short straight at the top left parallel to y-axis
+		StraightEmpty s7 = new StraightEmpty(); //short straight at the top left parallel to x-axis
+		StraightEmpty s8 = new StraightEmpty(); //middle long straight at the left parallel to y-axis
+		
+		s1.setFollowingStraight(s2, TurnDirection.LEFT);
+		s2.setFollowingStraight(s3, TurnDirection.LEFT);
+		s3.setFollowingStraight(s4, TurnDirection.LEFT);
+		s4.setFollowingStraight(s5, TurnDirection.RIGHT);
+		s5.setFollowingStraight(s6, TurnDirection.RIGHT);
+		s6.setFollowingStraight(s7, TurnDirection.LEFT);
+		s7.setFollowingStraight(s8, TurnDirection.LEFT);
+		s8.setFollowingStraight(s1, TurnDirection.LEFT);
+		
+		return s1;
+	}
+	
+	public NavigationHandler(){
+		currentStraight = this.initCourse();
+	}
+	
+}

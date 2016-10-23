@@ -1,0 +1,29 @@
+package parkingRobot.hsamr0.Navigation;
+
+
+public abstract class Straight {
+	private Straight followingStraight;
+	private TurnDirection turnDirection;
+	private startCoordinates Pair<Int,Int>;
+	private endCoordinates Pair<Int,Int>;
+	
+	/**
+	 * sets both the params for the following straight and the turn direction to null; those have to be set later
+	 */
+	public Straight(Tuple<int,int> start, Tuple<int,int> end){
+		this.followingStraight = null;
+		this.turnDirection = null;
+		
+	}
+	/**
+	 * sets the following straight if it wasnt set before
+	 * @param fS
+	 * @param tD
+	 */
+	public void setFollowingStraight(Straight followingStraight, TurnDirection turnDirection){
+		if(followingStraight == null)
+			this.followingStraight = followingStraight;
+		if(turnDirection == null)
+			this.turnDirection = turnDirection;
+	}
+}
