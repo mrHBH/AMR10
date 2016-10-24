@@ -4,4 +4,6 @@
 <fullyQualifiedTypeName name="java.awt.geom.Point2D"/>
 <fullyQualifiedTypeName name="lejos.robotics.navigation.Pose"/>
 <fullyQualifiedTypeName name="parkingRobot.hsamr0.Navigation.NavigationHandler"/>
+<fullyQualifiedTypeName name="java.util.HashSet"/>
+<fullyQualifiedTypeName name="lejos.geom.Point"/>
 </qualifiedTypeNameHistroy>

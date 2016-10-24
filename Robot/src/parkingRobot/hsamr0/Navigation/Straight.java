@@ -40,6 +40,28 @@ public abstract class Straight {
 	}
 	
 	/**
+	 * Returns the start point of the straight depending on which axis it is parallel to
+	 * @return
+	 */
+	public float get1DStartPoint(){
+		if (this.isYParallel())
+			return this.startPose.getY();
+		else
+			return this.startPose.getX();
+	}
+	
+	/**
+	 * Returns the end point of the straight depending on which axis it is parallel to
+	 * @return
+	 */
+	public float get1DEndPoint(){
+		if (this.isYParallel())
+			return this.getEndPose().getY();
+		else
+			return this.getEndPose().getX();
+	}
+	
+	/**
 	 * returns true if the straight is parallel to the x axis
 	 * @return
 	 */
@@ -58,6 +80,7 @@ public abstract class Straight {
 			return true;
 		return false;
 	}
-	
-	public abstract boolean hasParkingSlots();
+
+	public abstract boolean hasParkingZone();
+
 }

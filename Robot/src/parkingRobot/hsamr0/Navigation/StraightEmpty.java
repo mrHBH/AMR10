@@ -8,7 +8,7 @@ public class StraightEmpty extends Straight {
 	}
 
 	@Override
-	public boolean hasParkingSlots() {
+	public boolean hasParkingZone() {
 		return false;
 	}
 }
