@@ -1,4 +1,4 @@
-package parkingRobot.hsamr0.Navigation;
+package parkingRobot.hsamr10.Navigation;
 
 import java.util.LinkedList;
 import java.util.List;

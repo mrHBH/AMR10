@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <launchConfiguration type="org.lejos.nxt.ldt.LaunchType">
 <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
-<listEntry value="/Robot/src/parkingRobot/hsamr0/GuidanceAT.java"/>
+<listEntry value="/Robot/src/parkingRobot/hsamr10/GuidanceAT.java"/>
 </listAttribute>
 <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
 <listEntry value="1"/>
 </listAttribute>
 <stringAttribute key="org.eclipse.jdt.launching.CLASSPATH_PROVIDER" value="org.lejos.nxt.ldt.LaunchNXTClasspathProvider"/>
-<stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="parkingRobot.hsamr0.GuidanceAT"/>
+<stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="parkingRobot.hsamr10.GuidanceAT"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="Robot"/>
 <booleanAttribute key="org.lejos.nxt.ldt.ConnectToAddress" value="false"/>
 <booleanAttribute key="org.lejos.nxt.ldt.ConnectToName" value="false"/>

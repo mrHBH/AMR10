@@ -1,11 +1,11 @@
-package parkingRobot.hsamr0;
+package parkingRobot.hsamr10;
 
 import java.io.IOException;
 
 import parkingRobot.IMonitor;
 import parkingRobot.INavigation.ParkingSlot;
-import parkingRobot.hsamr0.GuidanceAT;
-import parkingRobot.hsamr0.HmiPLT.Command;
+import parkingRobot.hsamr10.GuidanceAT;
+import parkingRobot.hsamr10.HmiPLT.Command;
 import lejos.nxt.comm.RConsole;
 import lejos.robotics.navigation.Pose;
 
