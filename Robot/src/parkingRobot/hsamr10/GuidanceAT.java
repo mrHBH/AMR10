@@ -99,9 +99,10 @@ public class GuidanceAT {
         lastStatus    = CurrentStatus.EXIT;
 		
 		// Generate objects
-		
+		/** Output Channel A is broken, so we have to use B and C instead
+		 * For better results we have to cross the outputs**/
 		NXTMotor leftMotor  = new NXTMotor(MotorPort.B);
-		NXTMotor rightMotor = new NXTMotor(MotorPort.A);
+		NXTMotor rightMotor = new NXTMotor(MotorPort.C);
 		
 		IMonitor monitor = new Monitor();
 		
