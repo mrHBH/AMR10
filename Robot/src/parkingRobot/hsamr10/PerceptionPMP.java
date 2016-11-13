@@ -93,7 +93,7 @@ public class PerceptionPMP implements IPerception {
 	
 	public synchronized int getLeftLineSensor() {
 		int groundtype =1;	//standard: no black or white ground
-		if(this.LeftLineSensor < (this.LSlblack+5)){	//black ground
+		if(this.LeftLineSensor < (this.LSlblack+8)){	//black ground
 			groundtype=2;
 		}
 		if(this.LeftLineSensor > (this.LSlwhite-5)){ //white ground
@@ -104,7 +104,7 @@ public class PerceptionPMP implements IPerception {
 	public synchronized int getRightLineSensor() {
 		int groundtype =1;	//standard: no black or white ground
 		
-		if(this.RightLineSensor < (this.LSrblack+5)){	//black ground
+		if(this.RightLineSensor < (this.LSrblack+8)){	//black ground
 			groundtype=2;
 		}
 		if(this.RightLineSensor > (this.LSrwhite-5)){ //white ground
@@ -289,7 +289,20 @@ public class PerceptionPMP implements IPerception {
 		
 		this.controlRightEncoder.addAngle((double)deltaPhi);
 		this.navigationRightEncoder.addAngle((double)deltaPhi);		
+	}		@Override
+	
+	public int getLSlwhiteValue(){
+		return this.LSlwhite;
+	}
+	public int getLSrwhiteValue(){
+		return this.LSrwhite;
+	}
+	
+	public int getLSwhiteValues() {
+	
+			return	((this.LSrwhite) + (this.LSlwhite)/2);
 	}	
+	
 }
 
 

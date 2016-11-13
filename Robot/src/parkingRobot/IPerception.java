@@ -7,6 +7,13 @@ package parkingRobot;
  * @author PMP
  */
 public interface IPerception {
+	/** Functions to return the "perfect" black and white values,
+	 * needed to do calculations for PID-control**/ 
+	public int getLSlwhiteValue();
+	public int getLSrwhiteValue();
+	public int getLSwhiteValues();
+	
+	
 	/**
 	 * returns the groundcolortype of the left linesensor
 	 * use <code>{@link IPerception#calibrateLineSensors}</code> to calibrate the sensors for given environmental brightness
