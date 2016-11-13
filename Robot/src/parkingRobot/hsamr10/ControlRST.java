@@ -255,70 +255,137 @@ public class ControlRST implements IControl {
 	private void exec_LINECTRL_ALGO(){
 		leftMotor.forward();
 		rightMotor.forward();
-		int lowPower = 1;
-		int highPower = 30;
+		int lowPower = 10;
+		int highPower = 40;
+		int last_ldifferenz=0; // will need this for my PID calculation
+		int last_rdifferenz=0; // will need this for my PID calculation
 		
 		// MONITOR (example)
 		monitor.writeControlVar("LeftSensor", "" + this.lineSensorLeft);
 		monitor.writeControlVar("RightSensor", "" + this.lineSensorRight);
 
-        if(this.lineSensorLeft == 2 && (this.lineSensorRight == 1)){
-			
-			// when left sensor is on the line, turn left
-    	    leftMotor.setPower(lowPower);
-			rightMotor.setPower(highPower);
-			
-			// MONITOR (example)
+		if (this.lineSensorLeft == 2 && (this.lineSensorRight == 1)) {
+			// brake();
+			leftMotor.setPower(1);
+			rightMotor.setPower(35);
 			monitor.writeControlComment("turn left");
-			
-		} 
-        else if(this.lineSensorRight == 2 && (this.lineSensorLeft == 1)){
-		
-			// when right sensor is on the line, turn right
-			leftMotor.setPower(highPower);
-			rightMotor.setPower(lowPower);
-			
-			// MONITOR (example)
+
+		} else if (this.lineSensorRight == 2 && (this.lineSensorLeft == 1)) { // Rechts
+			// brake();
+			leftMotor.setPower(35);
+			rightMotor.setPower(1);
+			monitor.writeControlComment("turn right");
+		} else if (this.lineSensorLeft == 2 && (this.lineSensorRight == 0)) {
+			// brake();
+			rightMotor.setPower(45);
+			leftMotor.setPower(1);
+			monitor.writeControlComment("turn left");
+
+		} else if (this.lineSensorRight == 2 && (this.lineSensorLeft == 0)) {
+			// brake();
+			leftMotor.setPower(45);
+			rightMotor.setPower(1);
 			monitor.writeControlComment("turn right");
 		}
-		else if(this.lineSensorLeft == 2 && (this.lineSensorRight == 0)){
+
+		else if (this.lineSensorLeft == 1 && this.lineSensorRight == 0) {
+			// nullmode();// when left sensor is on the line, turn left
+			int tempValue = perception.getLeftLineSensorValue();
+			int leftWhite = perception.getLSlwhiteValue();
+			int temp_differenz = leftWhite-tempValue;
 			
-			// when left sensor is on the line, turn left
-			leftMotor.setPower(lowPower);
-			rightMotor.setPower(highPower);
 			
+			int speed_pid;
+			speed_pid= (int) ( 0.25*temp_differenz + 0.25 * (temp_differenz - last_ldifferenz));
+			last_ldifferenz= temp_differenz;
+			rightMotor.setPower(25 + (speed_pid/2));
+			if ( 15 - speed_pid>=0){
+			leftMotor.setPower(25 - (speed_pid/2));
+			}
+			else{leftMotor.setPower(20);
+			}
+			/*
+			if (tempValue > leftWhite - 5) {
+				rightMotor.setPower(highPower );
+				leftMotor.setPower(highPower - 8);
+			} else if (tempValue > leftWhite - 10) {
+				rightMotor.setPower(highPower );
+				leftMotor.setPower(highPower - 8);
+			} /*
+				 * else if (tempValue < leftWhite - 19) {
+				 * rightMotor.setPower(highPower + 10);
+				 * leftMotor.setPower(highPower - 24); } else {
+				 */
+			//rightMotor.setPower(30);
+			//leftMotor.setPower(20);
+			// }
+			// leftMotor.setPower(35 * (calculatePowerLeft()/ 100));
+			// rightMotor.setPower(calculatePowerRight());
+			// leftMotor.setPower(lowPower+5);
+			// rightMotor.setPower(highPower);
 			// MONITOR (example)
 			monitor.writeControlComment("turn left");
+
+		} else if (this.lineSensorRight == 1 && this.lineSensorLeft == 0) {
+			//nullmode();
+			int tempValue = perception.getRightLineSensorValue();
+			int rightWhite = perception.getLSrwhiteValue();
 			
-		} 
-		else if(this.lineSensorRight == 2 && (this.lineSensorLeft == 0)){
-		
-			// when right sensor is on the line, turn right
-			leftMotor.setPower(highPower);
-			rightMotor.setPower(lowPower);
+			int temp_differenz = rightWhite-tempValue;
 			
+			
+			int speed_pid;
+			speed_pid= (int) (0.25 *temp_differenz + 0.25 * (temp_differenz - last_rdifferenz));
+			last_rdifferenz= temp_differenz;
+			leftMotor.setPower(25 + (speed_pid/2));
+			if ( 15 - speed_pid>=0){
+			rightMotor.setPower(25 - (speed_pid/2));
+			}
+			else{rightMotor.setPower(20);
+			}
+			
+			
+		/*	if (tempValue > rightWhite - 5) {
+				rightMotor.setPower(highPower - 8);
+				leftMotor.setPower(highPower );
+			} else if (tempValue < rightWhite - 10) {
+				rightMotor.setPower(highPower - 8);
+				leftMotor.setPower(highPower );
+			} else /*
+					 * if (tempValue < rightWhite - 19) {
+					 * 
+					 * rightMotor.setPower(5); leftMotor.setPower(highPower +
+					 * 10); } else {
+					 */
+			//rightMotor.setPower(highPower);
+			//leftMotor.setPower(10);
+			// }
+			// leftMotor.setPower(35 * (calculatePowerLeft()/ 100));
+			// rightMotor.setPower(calculatePowerRight());
+			// leftMotor.setPower(lowPower+5);
+			// rightMotor.setPower(highPower);
 			// MONITOR (example)
 			monitor.writeControlComment("turn right");
+
+		} else if (this.lineSensorLeft == 2 && this.lineSensorRight == 2) { //
+			rightMotor.setPower(20); // Um ein abstoppen auf der Linie zu
+										// verhindern wird mit minimalem speed
+										// weitergefahren,danach sofort gebraked
+			leftMotor.setPower(20);
+			// brake();
 		}
-		else if(this.lineSensorLeft == 1 && this.lineSensorRight == 0) {
-				
-			// when left sensor is on the line, turn left
-			leftMotor.setPower(lowPower);
-			rightMotor.setPower(highPower);
-			
-			// MONITOR (example)
-			monitor.writeControlComment("turn left");
-				
-		} 
-		else if(this.lineSensorRight == 1 && this.lineSensorLeft == 0) {
-			
-			// when right sensor is on the line, turn right
-			leftMotor.setPower(highPower);
-			rightMotor.setPower(lowPower);
-			
-			// MONITOR (example)
-			monitor.writeControlComment("turn right");
+
+		else if (this.lineSensorLeft == 0 && this.lineSensorRight == 0) { //
+			rightMotor.setPower(40);
+			leftMotor.setPower(39);
 		}
+		/*
+		 * 
+		 * else //if (this.lineSensorLeft == 0 && this.lineSensorRight == 0) {
+		 * leftMotor.setPower(100); rightMotor.setPower(100);
+		 */
+		// monitor.writeControlComment("fullspeed");
+		// }
 	}
 	
 	private void stop(){
