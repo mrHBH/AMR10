@@ -17,23 +17,23 @@ ADNS7550 Optical1 = ADNS7550(SCLK, SDI,SDO, NCS);
 
 //die Annaeherungspolynome der Tri-Sensoren
 //Frontsensor      (an A0-FRONT)
-float poly0[] = {-23.971,230.2351,-852.0955,1543.1741,-1445.8621,693.349};  
+float poly0[] = {6.13417, -77.9395, 418.2286, -1235.1156, 2192.8045, -2401.0591, 1601.4215, -620.7073, 127.4933};   
 //Frontsidesensor  (an A1-FRONTSIDE)
-float poly1[] = {-23.971,230.2351,-852.0955,1543.1741,-1445.8621,693.349}; 
+float poly1[] = {6.0197,-74.6045,391.9254,-1139.4348,2007.7787,-2207.7321,1502.9062,-606.4441,130.7629}; 
 //Backsensor       (an A2-BACK)
-float poly2[] = {-23.971,230.2351,-852.0955,1543.1741,-1445.8621,693.349};
+float poly2[] = {-2.9039,34.9743,-174.1284,461.9265,-696.7437,575.7578,-197.3571,-44.0691,54.1188};
 //Backsidesensor   (an A3-BACKSIDE)
-float poly3[] = {-23.971,230.2351,-852.0955,1543.1741,-1445.8621,693.349};
+float poly3[] = {7.3493,-91.9851,484.9839,-1403.6417,2436.7193,-2605.7837,1699.4529,-647.7749,131.933};
 
 signed long x = 0;                        // Variables for our 'cursor'
 signed long y = 0;                        //
 
-int TriAPin = 0;
+int TriAPin = 3;
 
 
 int pixeldata[676];                           //speichert den Wert eines jeden Pixels
 int c = 0;                                // Counter variable for coordinate reporting
-int mode =99;                              //Modus-variable:
+int mode =3;                              //Modus-variable:
                                           //99-> sende kontinuierlich die x&y-Position und surface quality
                                           //1-> sende einmalig das Kamerabild
                                           //2-> sende kontinuierlich die Spannung an Analog0 in V
@@ -238,8 +238,8 @@ void loop()
          break;   
         }
         // print out the value you read:
-        Serial.println("V");
-        Serial.println(voltage); 
+        //Serial.println("V");
+        //Serial.println(voltage); 
         Serial.println(abstand); 
         delay(20);
         break;

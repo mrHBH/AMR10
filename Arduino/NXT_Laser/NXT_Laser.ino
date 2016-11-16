@@ -16,19 +16,19 @@ ADNS7550 Optical1 = ADNS7550(SCLK, SDI,SDO, NCS);
 
 //die Annaeherungspolynome der Tri-Sensoren
 //Frontsensor      (an A-FRONT)
-float poly0[] = {-23.971,230.2351,-852.0955,1543.1741,-1445.8621,693.349};  
-//Frontsidesensor  (an A-FRONTSIDE)
-float poly1[] = {-23.971,230.2351,-852.0955,1543.1741,-1445.8621,693.349}; 
-//Backsensor       (an A-BACK)
-float poly2[] = {-23.971,230.2351,-852.0955,1543.1741,-1445.8621,693.349};
-//Backsidesensor   (an A-BACKSIDE)
-float poly3[] = {-23.971,230.2351,-852.0955,1543.1741,-1445.8621,693.349};
+float poly0[] = {6.13417, -77.9395, 418.2286, -1235.1156, 2192.8045, -2401.0591, 1601.4215, -620.7073, 127.4933};   
+//Frontsidesensor  (an A1-FRONTSIDE)
+float poly1[] = {6.0197,-74.6045,391.9254,-1139.4348,2007.7787,-2207.7321,1502.9062,-606.4441,130.7629}; 
+//Backsensor       (an A2-BACK)
+float poly2[] = {-2.9039,34.9743,-174.1284,461.9265,-696.7437,575.7578,-197.3571,-44.0691,54.1188};
+//Backsidesensor   (an A3-BACKSIDE)
+float poly3[] = {7.3493,-91.9851,484.9839,-1403.6417,2436.7193,-2605.7837,1699.4529,-647.7749,131.933};
 
 //the Distancesensor-pins on the Arduino (Analogpin-)
-const byte FRONT = 3;
+const byte FRONT = 1;
 const byte FRONTSIDE = 2;
-const byte BACK = 1;
-const byte BACKSIDE = 0;
+const byte BACK = 0;
+const byte BACKSIDE = 3;
 
 //MausodometrieVariablen
 //Mauskallibrierwerte
