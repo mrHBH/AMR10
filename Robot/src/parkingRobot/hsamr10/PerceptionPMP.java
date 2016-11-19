@@ -252,10 +252,31 @@ public class PerceptionPMP implements IPerception {
 		this.UOdmometry		=	(double)(((sensorBytes[1])<<8) | (sensorBytes[0] & 0xff));
 		this.VOdometry		=	(double)(((sensorBytes[3])<<8) | (sensorBytes[2] & 0xff));
 		this.OdometryT		=   (int)((readBuffer[5]<<8) | (readBuffer[4] & 0xff));
-		this.FrontSensorDistance		=	(double)(((sensorBytes[7] & 0xff)<<8) | (sensorBytes[6] & 0xff));
-		this.FrontSideSensorDistance	=	(double)(((sensorBytes[9] & 0xff)<<8) | (sensorBytes[8] & 0xff));
-		this.BackSensorDistance		=		(double)(((sensorBytes[11] & 0xff)<<8) | (sensorBytes[10] & 0xff));
-		this.BackSideSensorDistance	=		(double)(((sensorBytes[13] & 0xff)<<8) | (sensorBytes[12] & 0xff));		
+		
+		double frontSensorValue = (double)(((sensorBytes[7] & 0xff)<<8) | (sensorBytes[6] & 0xff));
+		double frontSideSensorValue = (double)(((sensorBytes[9] & 0xff)<<8) | (sensorBytes[8] & 0xff));
+		double backSensorValue = (double)(((sensorBytes[11] & 0xff)<<8) | (sensorBytes[10] & 0xff));
+		double backSideSensorValue = (double)(((sensorBytes[13] & 0xff)<<8) | (sensorBytes[12] & 0xff));
+		
+		if(frontSensorValue <= 30.0)
+			this.FrontSensorDistance = frontSensorValue;
+		else
+			this.FrontSensorDistance = Double.POSITIVE_INFINITY;
+		
+		if(frontSideSensorValue <= 30.0)
+			this.FrontSideSensorDistance =	frontSideSensorValue;
+		else
+			this.FrontSideSensorDistance = Double.POSITIVE_INFINITY;
+		
+		if(backSensorValue <= 30.0)
+			this.BackSensorDistance	= backSensorValue;
+		else
+			this.BackSensorDistance = Double.POSITIVE_INFINITY;
+		
+		if(backSideSensorValue <= 30.0)
+			this.BackSideSensorDistance	= backSideSensorValue;
+		else
+			this.BackSideSensorDistance = Double.POSITIVE_INFINITY;
 
 		this.controlOdo.addShift(this.UOdmometry,this.VOdometry,this.OdometryT);
 		this.navigationOdo.addShift(this.UOdmometry,this.VOdometry,this.OdometryT);
