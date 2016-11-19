@@ -1,7 +1,0 @@
-package parkingRobot.hsamr0.Navigation;
-
-public class StraightParking extends Straight {
-	public StraightParking(Pose startPose){
-		super();
-	}
-}

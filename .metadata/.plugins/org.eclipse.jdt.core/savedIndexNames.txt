@@ -1,3 +1,0 @@
-INDEX VERSION 1.126+/Users/Lukas/Documents/Uni/Semester 9/AMR/git/.metadata/.plugins/org.eclipse.jdt.core
-2565910717.index
-3436436465.index
