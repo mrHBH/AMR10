@@ -253,10 +253,10 @@ public class PerceptionPMP implements IPerception {
 		this.VOdometry		=	(double)(((sensorBytes[3])<<8) | (sensorBytes[2] & 0xff));
 		this.OdometryT		=   (int)((readBuffer[5]<<8) | (readBuffer[4] & 0xff));
 		
-		double frontSensorValue = (double)(((sensorBytes[7] & 0xff)<<8) | (sensorBytes[6] & 0xff));
+		double backSideSensorValue = (double)(((sensorBytes[7] & 0xff)<<8) | (sensorBytes[6] & 0xff));
 		double frontSideSensorValue = (double)(((sensorBytes[9] & 0xff)<<8) | (sensorBytes[8] & 0xff));
-		double backSensorValue = (double)(((sensorBytes[11] & 0xff)<<8) | (sensorBytes[10] & 0xff));
-		double backSideSensorValue = (double)(((sensorBytes[13] & 0xff)<<8) | (sensorBytes[12] & 0xff));
+		double frontSensorValue = (double)(((sensorBytes[11] & 0xff)<<8) | (sensorBytes[10] & 0xff));
+		double backSensorValue = (double)(((sensorBytes[13] & 0xff)<<8) | (sensorBytes[12] & 0xff));
 		
 		if(frontSensorValue <= 30.0)
 			this.FrontSensorDistance = frontSensorValue;
