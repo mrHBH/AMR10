@@ -4,6 +4,7 @@ import parkingRobot.INavigation;
 import parkingRobot.INavigation.ParkingSlot;
 import parkingRobot.INavigation.ParkingSlot.ParkingSlotStatus;
 import parkingRobot.IPerception;
+import parkingRobot.IMonitor;
 
 import lejos.geom.Line;
 import lejos.geom.Point;
@@ -26,6 +27,10 @@ public class StraightLine {
 	private List<Double> parkingFrontPoints;
 	private List<Double> parkingBackPoints;
 	private List<Integer> parkingID;
+	static private final double OFFSET_PARKSLOT_BACKSIDE  = 0.100;
+	static private final double OFFSET_PARKSLOT_FRONTSIDE = 0.075;
+	
+	public IMonitor monitor = null;
 	
 	public enum Direction {
 		NORTH,
@@ -64,130 +69,76 @@ public class StraightLine {
 	}
 	*/
 	public boolean newParkingSlotSpotted(int ID, double frontBoundaryPosition, double backBoundaryPosition) {
+		if ( this.id==5 ) { return false; } // there is no parking slot, robot is turning to a street
+		
 		boolean slotNotInDatabase = true;
+		
+		// maybe this condition is not necessary...
+		if ( (this.startCoordinate < this.endCoordinate && backBoundaryPosition > frontBoundaryPosition) || 
+			 (this.startCoordinate > this.endCoordinate && backBoundaryPosition < frontBoundaryPosition)	) {
+			return false; // ParkingSlot cannot exist, this behaviour might appear at the very edge of a line
+		}
+		
+		if (this.startCoordinate < this.endCoordinate) {
+			 backBoundaryPosition  -= OFFSET_PARKSLOT_BACKSIDE;
+			 frontBoundaryPosition += OFFSET_PARKSLOT_FRONTSIDE;
+		}
+		else {
+			 backBoundaryPosition  += OFFSET_PARKSLOT_BACKSIDE;
+			 frontBoundaryPosition -= OFFSET_PARKSLOT_FRONTSIDE;
+		}
+		
+		
 		double existingFrontBoundary, existingBackBoundary;
 		for (int i=0; i<this.parkingID.size(); i++) {
 			existingFrontBoundary = this.parkingFrontPoints.get(i);
 			existingBackBoundary  = this.parkingBackPoints.get(i);
 			
-			// comparing two parking zones with each other. If a front boundary position is in between the other parking slot (or vice versa) they overlap.
+			// comparing two parking zones with each other. If a front boundary position is in between the other parking slot (OR vice versa) they overlap.
 			if (this.startCoordinate < this.endCoordinate) {
-				if (existingBackBoundary < frontBoundaryPosition && frontBoundaryPosition < existingFrontBoundary &&
-					backBoundaryPosition < existingFrontBoundary && existingFrontBoundary < frontBoundaryPosition) {
+				if ((existingBackBoundary < frontBoundaryPosition && frontBoundaryPosition < existingFrontBoundary) ||
+					(backBoundaryPosition < existingFrontBoundary && existingFrontBoundary < frontBoundaryPosition)) {
 					
 					// setting the boundary position to the location the robot perceives "earlier"
 					parkingFrontPoints.set(i, Math.min(existingFrontBoundary, frontBoundaryPosition) );
 					parkingBackPoints.set (i, Math.min(existingBackBoundary,  backBoundaryPosition) );
 					slotNotInDatabase = false;
+					ID = i;
 				}
 			}
 			else {
-				if (existingBackBoundary > frontBoundaryPosition && frontBoundaryPosition > existingFrontBoundary &&
-					backBoundaryPosition > existingFrontBoundary && existingFrontBoundary > frontBoundaryPosition) {
+				if ((existingBackBoundary > frontBoundaryPosition && frontBoundaryPosition > existingFrontBoundary) ||
+					(backBoundaryPosition > existingFrontBoundary && existingFrontBoundary > frontBoundaryPosition)) {
 					
 					parkingFrontPoints.set(i, Math.max(existingFrontBoundary, frontBoundaryPosition) );
 					parkingBackPoints.set (i, Math.max(existingBackBoundary,  backBoundaryPosition) );
 					slotNotInDatabase = false;
+					ID = i;
 				}
 			}
 		}
-		
+		String comment = new String();
 		if (slotNotInDatabase) {
 			this.parkingBackPoints.add(backBoundaryPosition);
 			this.parkingFrontPoints.add(frontBoundaryPosition);
 			this.parkingID.add(ID);
-		}
-		/*
-		ParkingSlot existingParkSlot = null;
-		double lowCoordOld = 0;
-		double highCoordOld= 0;
-		double lowCoordNew = Math.min(frontBoundaryPosition, backBoundaryPosition);
-		double highCoordNew= Math.max(frontBoundaryPosition, backBoundaryPosition);
-		Point frontParkingZone = new Point(0,0);
-		Point backParkingZone  = new Point(0,0);
-		for (int i=0; i<this.parkingSlots.size(); i++) {
-			existingParkSlot = parkingSlots.get(i);
-			switch (this.direction) {
-				case EAST:
-					lowCoordOld = existingParkSlot.getBackBoundaryPosition().getX();
-					highCoordOld= existingParkSlot.getFrontBoundaryPosition().getX();
-					break;
-				case NORTH:
-					lowCoordOld = existingParkSlot.getBackBoundaryPosition().getY();
-					highCoordOld= existingParkSlot.getFrontBoundaryPosition().getY();
-					break;
-				case WEST:
-					highCoordOld= existingParkSlot.getBackBoundaryPosition().getX();
-					lowCoordOld = existingParkSlot.getFrontBoundaryPosition().getX();
-					break;
-				case SOUTH:
-					highCoordOld= existingParkSlot.getBackBoundaryPosition().getY();
-					lowCoordOld = existingParkSlot.getFrontBoundaryPosition().getY();
-					break;
-			}
-			// comparing both parking zones. if one front point is between the other (or vice versa) the parking zones overlap
-			if ((	 lowCoordNew < highCoordOld && highCoordOld < highCoordNew) || 
-					(lowCoordOld < highCoordNew && highCoordNew < highCoordOld)) {				
-				slotNotInDatabase = false;
-				// takes the "earlier" locations measured by sensors
-				switch (this.direction) {
-				case NORTH:
-					frontParkingZone.setLocation( this.constCoordinate, Math.min(highCoordNew, highCoordOld) );
-					backParkingZone.setLocation(  this.constCoordinate, Math.min(lowCoordNew, lowCoordOld) );
-					break;
-				case EAST:
-					frontParkingZone.setLocation( Math.min(highCoordNew, highCoordOld), this.constCoordinate );
-					backParkingZone.setLocation(  Math.min(lowCoordNew, lowCoordOld), this.constCoordinate );
-					break;
-				case WEST:
-					frontParkingZone.setLocation( Math.max(lowCoordNew, lowCoordOld), this.constCoordinate );
-					backParkingZone.setLocation(  Math.max(highCoordNew, highCoordOld), this.constCoordinate );
-					break;
-				case SOUTH:
-					frontParkingZone.setLocation( this.constCoordinate, Math.max(lowCoordNew, lowCoordOld) );
-					backParkingZone.setLocation(  this.constCoordinate, Math.max(highCoordNew, highCoordOld) );
-					break;
-			}
-				existingParkSlot.setFrontBoundaryPosition(frontParkingZone);
-				existingParkSlot.setBackBoundaryPosition(backParkingZone);
-				break;
-			}
-
-		}
-		
-		if 		( this.direction==Direction.NORTH || this.direction==Direction.SOUTH) {
-			frontParkingZone.setLocation(this.constCoordinate, frontBoundaryPosition);
-			backParkingZone.setLocation(  this.constCoordinate, backBoundaryPosition );
-		}
-		else if ( this.direction==Direction.WEST || this.direction==Direction.EAST) {
-			frontParkingZone.setLocation(frontBoundaryPosition, this.constCoordinate);
-			backParkingZone.setLocation(  backBoundaryPosition,  this.constCoordinate);
-		}
-		
-		if (slotNotInDatabase){
-			ParkingSlotStatus parkingSlotStatus;
-			if ( Math.abs( frontBoundaryPosition - backBoundaryPosition ) < 0.45 ) {
-				parkingSlotStatus = ParkingSlotStatus.NOT_SUITABLE_FOR_PARKING;
-			}
-			else {
-				parkingSlotStatus = ParkingSlotStatus.SUITABLE_FOR_PARKING;
-			}
 			
-			this.parkingSlots.add(new ParkingSlot(
-					ID,
-					frontParkingZone,
-					backParkingZone,
-					parkingSlotStatus,
-					0)				
-					);
-					
+			comment = "new Slot: ";
 		}
-		*/
+//
+		else {
+			backBoundaryPosition = this.parkingBackPoints.get( ID );
+			frontBoundaryPosition = this.parkingFrontPoints.get( ID );
+			
+			comment = "old Slot: ";
+		}
+		this.monitor.writeNavigationComment(comment + backBoundaryPosition + " " + frontBoundaryPosition + " " + this.id);
+
 		return slotNotInDatabase;
 	}
 	
-	public Pose poseCorrection(Pose pose, IPerception perception) { //gefährlich. Pose ist eine Klasse
-		return null;
+	public void poseCorrection(Pose pose, IPerception perception) {
+		 
 	}
 	
 	public double getStartCoordinate() {
@@ -225,15 +176,15 @@ public class StraightLine {
 				angle = 0;
 		}
 		return angle;
-	}
+	}	
 	
 	public StraightLine update( Pose pose ) {
 		double angleDifference = Math.min(
 				Math.abs( this.getAngle() - pose.getHeading() ),
-				Math.abs( this.getAngle() - pose.getHeading() ) + 2*Math.PI ) ;
+				Math.abs( this.getAngle() - pose.getHeading() + 2*Math.PI ) ) ;
 		double nextAngleDifference = Math.min(
 				Math.abs( this.followingLine.getAngle() - pose.getHeading() ),
-				Math.abs( this.followingLine.getAngle() - pose.getHeading() ) + 2*Math.PI) ;
+				Math.abs( this.followingLine.getAngle() - pose.getHeading() + 2*Math.PI ) ) ;
 		
 		if ( angleDifference > nextAngleDifference ) {
 			this.conditionAngle = true;
@@ -262,12 +213,33 @@ public class StraightLine {
 				x = y = 0;
 		}
 		
-		if ( pose.getLocation().distance(x, y) < 0.10 ) {
+		if ( pose.getLocation().distance(x, y) < 0.20 ) {
 			this.conditionDistance = true;
 		}
 		
 		if ( this.conditionAngle && this.conditionDistance ) {
 		//if (this.conditionAngle) {
+			// Reset one axis (currently hard, maybe implement with filter)
+			switch( this.followingLine.direction ) {
+			case EAST:
+				x = pose.getX();
+				y = this.followingLine.constCoordinate;
+				break;
+			case WEST:
+				x = pose.getX();
+				y = this.followingLine.constCoordinate;
+				break;
+			case NORTH:
+				x = this.followingLine.constCoordinate;
+				y = pose.getY();
+				break;
+			case SOUTH:
+				x = this.followingLine.constCoordinate;
+				y = pose.getY();
+				break;
+			}
+			pose.setLocation( (float)x, (float)y);			
+			
 			this.conditionAngle = false;
 			this.conditionDistance = false;
 			return this.followingLine;
