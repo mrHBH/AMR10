@@ -90,26 +90,21 @@ public class NavigationAT implements INavigation{
 	 * distance from optical sensor pointing to the right side of robot to obstacle in mm (sensor mounted at the back)
 	 */
 	double backSideSensorDistance	=	0;
-
+	
+	double angle_by_DistanceSensors = 666*Math.PI/180;
 
 	/**
 	 * robot specific constant: radius of left wheel
 	 */
-	static final double LEFT_WHEEL_RADIUS	= 	0.028; // only rough guess, to be measured exactly and maybe refined by experiments
+	static final double LEFT_WHEEL_RADIUS	= 	0.0278; // only rough guess, to be measured exactly and maybe refined by experiments
 	/**
 	 * robot specific constant: radius of right wheel
 	 */
-	static final double RIGHT_WHEEL_RADIUS	= 	0.028; // only rough guess, to be measured exactly and maybe refined by experiments
+	static final double RIGHT_WHEEL_RADIUS	= 	LEFT_WHEEL_RADIUS * 3740/3721; // only rough guess, to be measured exactly and maybe refined by experiments
 	/**
 	 * robot specific constant: distance between wheels
 	 */
-	static final double WHEEL_DISTANCE		= 	0.095; // only rough guess, to be measured exactly and maybe refined by experiments
-	
-	static final double FRONT_SENSOR_MAXRANGE		= 260;
-	static final double FRONTSIDE_SENSOR_MAXRANGE 	= 260;
-	static final double BACK_SENSOR_MAXRANGE 		= 260;
-	static final double BACKSIDE_SENSOR_MAXRANGE 	= 260;
-
+	static final double WHEEL_DISTANCE		= 	0.096; // only rough guess, to be measured exactly and maybe refined by experiments
 	
 	/**
 	 * map array of line references, whose corresponding lines form a closed chain and represent the map of the robot course
@@ -162,11 +157,27 @@ public class NavigationAT implements INavigation{
 		this.encoderRight = perception.getNavigationRightEncoder();
 		this.mouseodo	  = perception.getNavigationOdo();
 		
+		
 		monitor.addNavigationVar("xCoordinate");
 		monitor.addNavigationVar("yCoordinate");
 		monitor.addNavigationVar("angle");
+		monitor.addNavigationVar("angle2");
 		monitor.addNavigationVar("map");
+		monitor.addNavigationVar("frontSide");
+		monitor.addNavigationVar("backSide");
+		monitor.addNavigationVar("front");
+		monitor.addNavigationVar("back");
 		
+		
+		/*
+		monitor.addNavigationVar("xCoordinate");
+		monitor.addNavigationVar("yCoordinate");
+		monitor.addNavigationVar("angle");
+		monitor.addNavigationVar("leftEncoder");
+		monitor.addNavigationVar("rightEncoder");
+		monitor.addNavigationVar("leftTime");
+		monitor.addNavigationVar("rightTime");	
+		*/
 		navThread.setPriority(Thread.MAX_PRIORITY - 1);
 		navThread.setDaemon(true); // background thread that is not need to terminate in order for the user program to terminate
 		navThread.start();
@@ -188,7 +199,11 @@ public class NavigationAT implements INavigation{
 		}
 		this.map.get( map.length-1 ).setFollowingLine( this.currentLine );
 		
-		for (int i=0; i<map.length; i++) { this.map.get(i).id = i; }
+		for (int i=0; i<map.length; i++) {
+			this.map.get(i).id = i;
+			this.map.get(i).monitor = this.monitor;
+		}
+		
 	}
 	
 	/* (non-Javadoc)
@@ -214,20 +229,37 @@ public class NavigationAT implements INavigation{
 //		monitor.writeNavigationComment("Navigation");
 		
 		
-		monitor.writeNavigationVar("xCoordinate", ""+( this.pose.getX()*100 ) );
-		monitor.writeNavigationVar("yCoordinate", ""+( this.pose.getY()*100 ) );
-		monitor.writeNavigationVar("angle", ""+( this.pose.getHeading() *180/Math.PI ) );
-		
+
 		if (this.map != null) {
+			
+			monitor.writeNavigationVar("xCoordinate", ""+( this.pose.getX()*100 ) );
+			monitor.writeNavigationVar("yCoordinate", ""+( this.pose.getY()*100 ) );
+			monitor.writeNavigationVar("angle", ""+( this.pose.getHeading() *180/Math.PI ) );
+			monitor.writeNavigationVar("angle2", ""+this.angle_by_DistanceSensors * 180/Math.PI);
 			monitor.writeNavigationVar("map", ""+ this.currentLine.id);
-			/*LCD.clear();
-			LCD.drawString("Line " + this.currentLine.id, 0, 0);
-			LCD.drawString("Angle " + this.currentLine.conditionAngle, 0, 1);
+			monitor.writeNavigationVar("frontSide", ""+this.frontSideSensorDistance);
+			monitor.writeNavigationVar("backSide", ""+this.backSideSensorDistance);
+			monitor.writeNavigationVar("front", ""+this.frontSensorDistance);
+			monitor.writeNavigationVar("back", ""+this.backSensorDistance);
+			/*
+			LCD.clear();
+			
+			LCD.drawString("X (in cm): " + (this.getPose().getX()*100), 0, 0);
+			LCD.drawString("Y (in cm): " + (this.getPose().getY()*100), 0, 1);
+			LCD.drawString("Phi (grd): " + (this.getPose().getHeading()/Math.PI*180), 0, 2);
+			LCD.drawString("Line " + this.currentLine.id, 0, 3);
+			LCD.drawString("Parking Slots: " + this.currentLine.getParkingSlots().size(), 0, 4);
+			LCD.drawString("FrontSide " + this.frontSideSensorDistance, 0, 5);
+			LCD.drawString("BackSide " + this.backSideSensorDistance, 0, 6);
+			LCD.drawString("Angle " + this.angle_by_DistanceSensors * 180/Math.PI, 0, 7);
+			//LCD.drawString(""+this.currentLine.getDirection(), 0, 7);
+			//LCD.drawString("Line " + this.currentLine.id, 0, 7);
+			/*LCD.drawString("Angle " + this.currentLine.conditionAngle, 0, 1);
 			LCD.drawString("Distance " + this.currentLine.conditionDistance, 0, 2);*/
+			//perception.showSensorData();
+
 		}
-		else {
-			monitor.writeNavigationVar("map", "0");
-		}
+
 		/*
 		LCD.clear();
 		LCD.drawString("Linie: " + this.currentLine.id , 0, 0);
@@ -259,6 +291,10 @@ public class NavigationAT implements INavigation{
 		return parkingSlotsArr;
 	}
 	
+	public int getLineID() {
+		return this.currentLine.id;
+	}
+	
 	
 	// Private methods
 	
@@ -285,7 +321,7 @@ public class NavigationAT implements INavigation{
 	 */
 	private void calculateLocation(){
 		Pose poseIncrementalEncoder = calculateLocationIncrementalEncoder();
-		Pose poseMouseSensor		= calculateLocationMouseSensor();
+		// Pose poseMouseSensor		= calculateLocationMouseSensor(); // noch nicht implementiert
 		
 		// Fusion Odometriedaten
 		this.pose.setLocation( poseIncrementalEncoder.getLocation() );
@@ -294,44 +330,37 @@ public class NavigationAT implements INavigation{
 		// Korrektur
 		
 		if (this.map != null) {
-			//StraightLine nextLine = this.currentLine.getFollowingLine();
-			
+			// this.currentLine.poseCorrection( this.pose, this.perception);		
 			this.currentLine = this.currentLine.update( this.pose );
-			/*
-			if ( Math.abs( currentLine.getAngle() - this.pose.getHeading() )   >   Math.abs( nextLine.getAngle() - this.pose.getHeading() ) ) {
-				this.currentLine = nextLine;
-			}
-			*/
 		}
 		
-		
-		/*
-		if (this.map != null) {
-			
-			int nextLineID = (this.currentLineID+1) % this.map.length;
-			
-			Line currentLine = this.map[this.currentLineID];
-			Line nextLine 	 = this.map[nextLineID];
-			
-			float headingCurrentLine = calculateAngle(currentLine);
-			float headingNextLine 	 = calculateAngle(nextLine);
-
-			if ( Math.abs( headingCurrentLine-this.pose.getHeading() ) * 180 / Math.PI < 10) {
-				if ( this.frontSensorDistance < FRONT_SENSOR_MAXRANGE ) {
-					Point referencePoint = currentLine.getP2();
-				}
-				else if ( this.backSensorDistance < BACK_SENSOR_MAXRANGE) {
-					
-				}
+		if ( this.frontSideSensorDistance!=0 && this.frontSideSensorDistance!=Double.POSITIVE_INFINITY &&
+				this.backSideSensorDistance!=0 && this.backSideSensorDistance!=Double.POSITIVE_INFINITY ) {
+			double offset = 0;
+			switch ( this.currentLine.getDirection() ) {
+			case EAST:
+				offset = Math.PI * 0 / 2;
+				break;
+			case NORTH:
+				offset = Math.PI * 1 / 2;
+				break;			
+			case WEST:
+				offset = Math.PI * 2 / 2;
+				break;
+			case SOUTH:
+				offset = Math.PI * 3 / 2;
+				break;
 			}
-						
+			this.angle_by_DistanceSensors = Math.atan(  (this.frontSideSensorDistance - this.backSideSensorDistance) / 17.5  ) + offset; // Distance between both sensors
 			
-			if ( Math.abs( headingCurrentLine - this.pose.getHeading() )   <   Math.abs( headingNextLine - this.pose.getHeading() ) ) {
-				this.currentLineID = nextLineID;
+			//if ( Math.abs( this.angleMeasurementLeft.getAngleSum() - this.angleMeasurementRight.getAngleSum() )/ ((double)this.angleMeasurementLeft.getDeltaT()/1000) > 50 ||
+				//	this.pose.getHeading() % (Math.PI/4) > Math.PI/6 ) {
+			if ( this.pose.getX()==0 && this.pose.getY()==0 ) {
+				this.pose.setHeading( (float)this.angle_by_DistanceSensors );
 			}
-		
 		}
-		*/
+				
+		
 	}
 	
 	private Pose calculateLocationIncrementalEncoder(){
@@ -369,11 +398,20 @@ public class NavigationAT implements INavigation{
 			yResult 		= Math.sin(w * deltaT) * (this.pose.getX()-ICCx) + Math.cos(w * deltaT) * (this.pose.getY() - ICCy) + ICCy;
 			angleResult 	= this.pose.getHeading() + w * deltaT;
 		}
-		angleResult = angleResult % (2*Math.PI);		
+		angleResult = ( angleResult + 2*Math.PI) % (2*Math.PI);
 		
 		Pose pose = new Pose();
 		pose.setLocation((float)xResult, (float)yResult);
 		pose.setHeading((float)angleResult);
+		/*
+		monitor.writeNavigationVar("xCoordinate", ""+( xResult ) );
+		monitor.writeNavigationVar("yCoordinate", ""+( yResult ) );
+		monitor.writeNavigationVar("angle", ""+( angleResult *180/Math.PI ) );
+		monitor.writeNavigationVar("leftEncoder", ""+leftAngleSpeed);
+		monitor.writeNavigationVar("rightEncoder", ""+rightAngleSpeed);
+		monitor.writeNavigationVar("leftTime", ""+deltaT);
+		monitor.writeNavigationVar("rightTime", ""+ ((double)this.angleMeasurementRight.getDeltaT())/1000);
+		*/
 		return pose;
 	}
 	
@@ -398,42 +436,23 @@ public class NavigationAT implements INavigation{
 			
 			
 			
-			if (this.frontSideSensorDistance < 100) { // Wert anpassen
+			if (this.frontSideSensorDistance != Double.POSITIVE_INFINITY) { // Wert anpassen
 				
 				if ( this.currentLine.newParkingSlotSpotted(parkingSlotIDCounter, calcParkingSlotLocation( this.currentLine ), this.backBoundaryPosition) ) {
 					this.parkingSlotIDCounter++;
 				}
 				
+				this.detectingParkingSlot = false;
 				
-				/*
-				backBoundaryPosition.setLocation( calcParkingSlotLocation( this.pose, this.map[this.currentLineID] ) );
-				// check current database required!
-											
-				parkingSlots.add(new ParkingSlot(
-						this.currentLineID,
-						frontBoundaryPosition,
-						backBoundaryPosition,
-						ParkingSlotStatus.NOT_SUITABLE_FOR_PARKING,
-						0)				
-						);
-				ID = parkingSlots.size()-1;
-				
-				
-				if ( frontBoundaryPosition.distance(backBoundaryPosition) > 45 ) {
-					parkingSlots.get(ID).setStatus( ParkingSlotStatus.SUITABLE_FOR_PARKING );
-				}
-				*/
 			}
 		}
 		else {
-			if (this.frontSideSensorDistance > FRONT_SENSOR_MAXRANGE && this.backSideSensorDistance > BACKSIDE_SENSOR_MAXRANGE) {
+			if ( this.frontSideSensorDistance == Double.POSITIVE_INFINITY &&
+					this.backSideSensorDistance == Double.POSITIVE_INFINITY ) {
 				
 				this.detectingParkingSlot = true;
-				backBoundaryPosition = calcParkingSlotLocation( this.currentLine );
+				this.backBoundaryPosition = calcParkingSlotLocation( this.currentLine );
 				
-				/*
-				frontBoundaryPosition.setLocation( calcParkingSlotLocation( this.pose, this.map[this.currentLineID] ) );
-				*/
 			}
 			
 		}
@@ -470,29 +489,6 @@ public class NavigationAT implements INavigation{
 		return calcPointOnStraightLine( pose.getX(), pose.getY(), line );
 	}
 	
-	/**
-	 * Calculates the parking location spot.
-	 * @param point
-	 * @param line
-	 * @return returns the point on the robot course! The parking spot is parallel to it. 
-	 */
-	/*
-	private Point calcParkingSlotLocation(Pose pose, Line line) {
-		Point point = new Point(0,0);
-		double x=0, y=0;
-		double relative_angle = this.pose.getHeading() - calculateAngle(line);
-		if ( line.getX1()==line.getX2() ) {
-			x = line.getX1();
-			y = pose.getY() + DISTANCE_ROBOTCOURSE_TO_PARKINGAREA * Math.tan( relative_angle ) * Math.signum( line.y2-line.y1 );
-		}
-		else if ( line.getY1()==line.getY2() ) {
-			x = pose.getX() + DISTANCE_ROBOTCOURSE_TO_PARKINGAREA * Math.tan( relative_angle ) * Math.signum( line.x2-line.x1 );
-			y = line.getY1();
-		}
-		point.setLocation(x, y);
-		return point;
-	}
-*/
 	
 	private double calcParkingSlotLocation(StraightLine line) {
 		double coordinate = 0;
@@ -505,8 +501,10 @@ public class NavigationAT implements INavigation{
 				break;
 			case EAST:
 				coordinate = this.pose.getX() + DISTANCE_ROBOTCOURSE_TO_PARKINGAREA * Math.tan( this.pose.getHeading() );
+				break;
 			case WEST:
 				coordinate = this.pose.getX() - DISTANCE_ROBOTCOURSE_TO_PARKINGAREA * Math.tan( this.pose.getHeading() );
+				break;
 
 		}
 		return coordinate;
