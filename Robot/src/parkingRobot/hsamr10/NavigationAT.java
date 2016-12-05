@@ -90,8 +90,10 @@ public class NavigationAT implements INavigation{
 	 * distance from optical sensor pointing to the right side of robot to obstacle in mm (sensor mounted at the back)
 	 */
 	double backSideSensorDistance	=	0;
-	
-	double angle_by_DistanceSensors = 666*Math.PI/180;
+	/**
+	 * angle calculated by front side and back side distance sensors
+	 */
+	double angle_by_DistanceSensors = 0;
 
 	/**
 	 * robot specific constant: radius of left wheel
@@ -107,14 +109,14 @@ public class NavigationAT implements INavigation{
 	static final double WHEEL_DISTANCE		= 	0.096; // only rough guess, to be measured exactly and maybe refined by experiments
 	
 	/**
-	 * map array of line references, whose corresponding lines form a closed chain and represent the map of the robot course
+	 * map list of line references, whose corresponding lines form a closed chain and represent the map of the robot course
 	 */
 	//Line[] map 								= null;
 	private LinkedList<StraightLine> map = null;
-	public 	StraightLine currentLine	 = null;
 	/**
 	 * defines current line of map the module is operating on
 	 */
+	public 	StraightLine currentLine	 = null;	
 	/**
 	 * reference to the corresponding main module Perception class
 	 */
@@ -131,10 +133,22 @@ public class NavigationAT implements INavigation{
 	 * pose class containing bundled current X and Y location and corresponding heading angle phi
 	 */
 	Pose pose								= new Pose();
-	
+	/**
+	 * variable, to check whether a parking slot measuring process is ongoing / a parking slot's beginning has been spotted
+	 */
 	boolean detectingParkingSlot		 = false;
+	/**
+	 * variable to save the parking slot's beginning temporarily
+	 */
 	double backBoundaryPosition			 = 0;
+	/**
+	 * ID, that is given to new parking slots. Increments with each new slot. Once an ID has been used, it cannot be used, even if 
+	 * the corresponding slot is deleted afterwards.
+	 */
 	int parkingSlotIDCounter			 = 0;
+	/**
+	 * distance from the line course to a parking slot parallel to the line. Used for angle correction.
+	 */
 	static final double DISTANCE_ROBOTCOURSE_TO_PARKINGAREA = 0.30;
 	
 	/**
@@ -362,7 +376,11 @@ public class NavigationAT implements INavigation{
 				
 		
 	}
-	
+	/**
+	 * calculates robot pose from via incremental encoders (odometry)
+	 * 
+	 * @return pose class returns robot pose
+	 */
 	private Pose calculateLocationIncrementalEncoder(){
 		double leftAngleSpeed 	= this.angleMeasurementLeft.getAngleSum()  / ((double)this.angleMeasurementLeft.getDeltaT()/1000);  //degree/seconds
 		double rightAngleSpeed 	= this.angleMeasurementRight.getAngleSum() / ((double)this.angleMeasurementRight.getDeltaT()/1000); //degree/seconds
@@ -461,11 +479,7 @@ public class NavigationAT implements INavigation{
 	}
 	
 	// functions
-	/**
-	 * Calculates the angle of a given line. A single line is given as vector. 
-	 * @param line
-	 * @return angle
-	 */
+
 	private float calculateAngle(Line line){
 		double x = line.getX2() - line.getX1();
 		double y = line.getY2() - line.getY1();
