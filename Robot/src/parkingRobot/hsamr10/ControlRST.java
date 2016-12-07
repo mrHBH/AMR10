@@ -6,6 +6,9 @@ import parkingRobot.IControl;
 import parkingRobot.IMonitor;
 import parkingRobot.IPerception;
 import parkingRobot.IPerception.*;
+
+import java.util.Timer;
+
 import lejos.nxt.NXTMotor;
 import parkingRobot.INavigation;
 
@@ -57,8 +60,6 @@ public class ControlRST implements IControl {
     int leftMotorPower = 0;
 	int rightMotorPower = 0;
 	
-	double velocity = 0.0;
-	double angularVelocity = 0.0;
 	
 	Pose startPosition = new Pose();
 	Pose currentPosition = new Pose();
@@ -74,6 +75,36 @@ public class ControlRST implements IControl {
     double currentDistance = 0.0;
     double Distance = 0.0;
   
+    // #### drive
+    double Kp = 0; // 0.
+	double Ki = 0;
+	double Kd = 0;
+	int pi = 0;
+	int pd = 0;
+	int lastError = 0;
+	int differenceError = 1;
+	int speed = 0;
+	double velocity = 0.0;
+	double angularVelocity = 0.0;
+	long deltaT = 0;
+	double addL = 0;
+	double addR = 0;
+	double sum = 0;
+	// ++ vw control
+	double umfang = 2 * Math.PI * 0.028;
+	double tempErrorVWLeft = 0;
+	double tempErrorVWRight = 0;
+	double lastErrorVWLeft = 0;
+	double lastErrorVWRight = 0;
+	double speedR = 0;
+	double speedL = 0;
+	double radiusM = 0;
+	int wheelDistance = 10; // 10cm
+	Timer timer = new Timer();
+	private long time = 0;
+	private static int mutex = 0;
+
+	
 	
 	/**
 	 * provides the reference transfer so that the class knows its corresponding navigation object (to obtain the current 
@@ -174,7 +205,8 @@ public class ControlRST implements IControl {
 		switch (currentCTRLMODE)
 		{
 		  case LINE_CTRL	: update_LINECTRL_Parameter();
-		                      exec_LINECTRL_ALGO();
+		                      //exec_LINECTRL_ALGO();
+		                      testdrive();
 		                      break;
 		  case VW_CTRL		: update_VWCTRL_Parameter();
 		   					  exec_VWCTRL_ALGO();
@@ -255,137 +287,147 @@ public class ControlRST implements IControl {
 	private void exec_LINECTRL_ALGO(){
 		leftMotor.forward();
 		rightMotor.forward();
-		int lowPower = 10;
-		int highPower = 40;
-		int last_ldifferenz=0; // will need this for my PID calculation
-		int last_rdifferenz=0; // will need this for my PID calculation
-		
-		// MONITOR (example)
+		double Kiline = 0;
+		double Kpline = 0.1;
+		double Kdline = 1;
+		int pi = 0;
+		int pd = 0;
+		int lastErrorL = 0;
+		int differenceErrorL = 1;
+		int lastErrorR = 0;
+		int differenceErrorR = 1;
+		int speed = 0;
+		int rightWhite = perception.getLSrwhiteValue();
+		int leftWhite = perception.getLSlwhiteValue();
 		monitor.writeControlVar("LeftSensor", "" + this.lineSensorLeft);
 		monitor.writeControlVar("RightSensor", "" + this.lineSensorRight);
-
 		if (this.lineSensorLeft == 2 && (this.lineSensorRight == 1)) {
-			// brake();
 			leftMotor.setPower(1);
 			rightMotor.setPower(35);
 			monitor.writeControlComment("turn left");
-
+		//	turnBefore = true;
 		} else if (this.lineSensorRight == 2 && (this.lineSensorLeft == 1)) { // Rechts
-			// brake();
 			leftMotor.setPower(35);
 			rightMotor.setPower(1);
 			monitor.writeControlComment("turn right");
+			//turnBefore = true;
 		} else if (this.lineSensorLeft == 2 && (this.lineSensorRight == 0)) {
-			// brake();
 			rightMotor.setPower(45);
 			leftMotor.setPower(1);
-			monitor.writeControlComment("turn left");
-
+			monitor.writeControlComment("turn leftKurve");
+		//	turnBefore = true;
 		} else if (this.lineSensorRight == 2 && (this.lineSensorLeft == 0)) {
-			// brake();
 			leftMotor.setPower(45);
 			rightMotor.setPower(1);
-			monitor.writeControlComment("turn right");
+			monitor.writeControlComment("turn rightKurve");
+		//	turnBefore = true;
 		}
 
 		else if (this.lineSensorLeft == 1 && this.lineSensorRight == 0) {
-			// nullmode();// when left sensor is on the line, turn left
-			int tempValue = perception.getLeftLineSensorValue();
-			int leftWhite = perception.getLSlwhiteValue();
-			int temp_differenz = leftWhite-tempValue;
-			
-			
-			int speed_pid;
-			speed_pid= (int) ( 0.25*temp_differenz + 0.25 * (temp_differenz - last_ldifferenz));
-			last_ldifferenz= temp_differenz;
-			rightMotor.setPower(25 + (speed_pid/2));
-			if ( 15 - speed_pid>=0){
-			leftMotor.setPower(25 - (speed_pid/2));
+			int tempValue = perception.getLeftRough();
+			perception.getLeftLineSensorValue();
+			if (leftWhite - tempValue < 0) {
+				differenceErrorL = 0;
+			} else {
+				if (leftWhite - tempValue > 16) {
+					differenceErrorL = 16;
+				} else {
+					differenceErrorL = leftWhite - tempValue;
+				}
 			}
-			else{leftMotor.setPower(20);
-			}
+			pi = pi + differenceErrorL; // aufintegrieren aller vorherigen
+										// Fehler
+			pd = differenceErrorL - lastErrorL;
+			speed = (int) (((Kpline * differenceErrorL) + (Kiline * pi) + (Kdline * pd)));
+			if (speed < 0) {
+				speed = 0;
+				differenceErrorR = 0;
+				lastErrorR = 0;
+				rightMotor.setPower(31);// - speed);
+				leftMotor.setPower(30);
+
+			} else {
+				rightMotor.setPower(35 + speed);// - speed);
+				leftMotor.setPower(35);
+				monitor.writeControlComment("PIDL1" + speed + "differenceErrorL" + differenceErrorL);
+				lastErrorL = differenceErrorL;
+			//	turnBefore=true;
+			} 
 			/*
-			if (tempValue > leftWhite - 5) {
-				rightMotor.setPower(highPower );
-				leftMotor.setPower(highPower - 8);
-			} else if (tempValue > leftWhite - 10) {
-				rightMotor.setPower(highPower );
-				leftMotor.setPower(highPower - 8);
+			 * speed_pid = (int) (0.25 * temp_differenz + 0.25 * (temp_differenz
+			 * - last_ldifferenz)); last_ldifferenz = temp_differenz; int pgs =
+			 * 45 + speed_pid/4; int ngs = 45 - speed_pid/4; //
+			 * monitor.writeControlComment("SpeedPID R0 L1" + pgs+ "end");
+			 * rightMotor.setPower(pgs); if (30 - speed_pid >= 0) {
+			 * leftMotor.setPower(ngs); } else { leftMotor.setPower(20); }
+			 * monitor.writeControlComment("turn left");
+			 */
+		} else if ((this.lineSensorRight == 1 && this.lineSensorLeft == 0)) {
+			// nullmode();
+			int tempValue = perception.getRightRough(); // perception.getRightLineSensorValue();
+
+			if (rightWhite - tempValue < 0) {
+				differenceErrorL = 0;
+			} else {
+				if (rightWhite - tempValue > 16) {
+					differenceErrorL = 16;
+				} else {
+					differenceErrorL = rightWhite - tempValue;
+				}
+			}
+			pi = pi + differenceErrorR; // aufintegrieren aller
+										// vorherigen//// Fehler
+			pd = differenceErrorR - lastErrorR;
+			speed = (int) (((Kpline * differenceErrorR) + (Kiline * pi) + (Kdline * pd)));
+			if (speed < 0) {
+				speed = 0;
+				differenceErrorR = 0;
+				lastErrorR = 0;
+
+				rightMotor.setPower(30);// - speed);
+				leftMotor.setPower(31);
+			} else {
+				rightMotor.setPower(35);
+				leftMotor.setPower(35 + speed);// - speed);
+				monitor.writeControlComment("PIDR1L0" + speed + "differenceErrorR" + differenceErrorR);
+				monitor.addControlVar("speed" + speed);
+				lastErrorR = differenceErrorR;
+		//		turnBefore=true;
 			} /*
-				 * else if (tempValue < leftWhite - 19) {
-				 * rightMotor.setPower(highPower + 10);
-				 * leftMotor.setPower(highPower - 24); } else {
+				 * int temp_differenz = rightWhite - tempValue;
+				 * 
+				 * int speed_pid; speed_pid = (int) (0.25 * temp_differenz +
+				 * 0.25 * (temp_differenz - last_rdifferenz)); last_rdifferenz =
+				 * temp_differenz; int motorspeed = 45 + (speed_pid/4); int ngs
+				 * = 45 - (speed_pid/4);
+				 * monitor.writeControlComment("SpeedPID R1 L0" + motorspeed
+				 * +"end"); leftMotor.setPower(motorspeed); if (15 - speed_pid
+				 * >= 0) { rightMotor.setPower(ngs); } else {
+				 * rightMotor.setPower(20); }
+				 * 
+				 * monitor.writeControlComment("turn right");#+99´
+				 * 
 				 */
-			//rightMotor.setPower(30);
-			//leftMotor.setPower(20);
-			// }
-			// leftMotor.setPower(35 * (calculatePowerLeft()/ 100));
-			// rightMotor.setPower(calculatePowerRight());
-			// leftMotor.setPower(lowPower+5);
-			// rightMotor.setPower(highPower);
-			// MONITOR (example)
-			monitor.writeControlComment("turn left");
-
-		} else if (this.lineSensorRight == 1 && this.lineSensorLeft == 0) {
-			//nullmode();
-			int tempValue = perception.getRightLineSensorValue();
-			int rightWhite = perception.getLSrwhiteValue();
-			
-			int temp_differenz = rightWhite-tempValue;
-			
-			
-			int speed_pid;
-			speed_pid= (int) (0.25 *temp_differenz + 0.25 * (temp_differenz - last_rdifferenz));
-			last_rdifferenz= temp_differenz;
-			leftMotor.setPower(25 + (speed_pid/2));
-			if ( 15 - speed_pid>=0){
-			rightMotor.setPower(25 - (speed_pid/2));
-			}
-			else{rightMotor.setPower(20);
-			}
-			
-			
-		/*	if (tempValue > rightWhite - 5) {
-				rightMotor.setPower(highPower - 8);
-				leftMotor.setPower(highPower );
-			} else if (tempValue < rightWhite - 10) {
-				rightMotor.setPower(highPower - 8);
-				leftMotor.setPower(highPower );
-			} else /*
-					 * if (tempValue < rightWhite - 19) {
-					 * 
-					 * rightMotor.setPower(5); leftMotor.setPower(highPower +
-					 * 10); } else {
-					 */
-			//rightMotor.setPower(highPower);
-			//leftMotor.setPower(10);
-			// }
-			// leftMotor.setPower(35 * (calculatePowerLeft()/ 100));
-			// rightMotor.setPower(calculatePowerRight());
-			// leftMotor.setPower(lowPower+5);
-			// rightMotor.setPower(highPower);
-			// MONITOR (example)
-			monitor.writeControlComment("turn right");
-
 		} else if (this.lineSensorLeft == 2 && this.lineSensorRight == 2) { //
-			rightMotor.setPower(20); // Um ein abstoppen auf der Linie zu
-										// verhindern wird mit minimalem speed
-										// weitergefahren,danach sofort gebraked
-			leftMotor.setPower(20);
-			// brake();
+			minischub();
+//			turnBefore = false;
 		}
 
 		else if (this.lineSensorLeft == 0 && this.lineSensorRight == 0) { //
-			rightMotor.setPower(40);
-			leftMotor.setPower(39);
+	//		turnBefore = false;
+		//	drive(37, 0);
+			leftMotor.setPower(37);
+			rightMotor.setPower(37);
 		}
-		/*
-		 * 
-		 * else //if (this.lineSensorLeft == 0 && this.lineSensorRight == 0) {
-		 * leftMotor.setPower(100); rightMotor.setPower(100);
-		 */
-		// monitor.writeControlComment("fullspeed");
-		// }
+	}
+
+	private void minischub() {
+		rightMotor.setPower(18); // Um ein abstoppen auf der Linie zu
+		// verhindern wird mit minimalem speed
+		// weitergefahren,danach sofort gebraked
+		leftMotor.setPower(18);
+
+		// brake();
 	}
 	
 	private void stop(){
@@ -393,13 +435,125 @@ public class ControlRST implements IControl {
 		this.rightMotor.stop();
 	}
 		
-    /**
-     * calculates the left and right angle speed of the both motors with given velocity 
-     * and angle velocity of the robot
-     * @param v velocity of the robot
-     * @param omega angle velocity of the robot
-     */
-	private void drive(double v, double omega){
-		//Aufgabe 3.2
+
+	/**
+	 * calculates the left and right angle speed of the both motors with given
+	 * velocity and angle velocity of the robot
+	 * 
+	 * @param v
+	 *            velocity of the robot
+	 * @param omega
+	 *            angle velocity of the robot
+	 */
+
+	// Aufgabe 3.2
+	private void testdrive() {
+		if (mutex == 0) { // count ist global auf 0 initialisiert
+			time = System.currentTimeMillis();
+			time = time + 30001;
+			mutex++;
+		}
+
+		if (time != 0) {
+			// ######### drive 10cm/s for 15s ###################
+			if (System.currentTimeMillis() < (time - 15000)) {
+				drive(0.1, 0);
+			} else {
+				if (System.currentTimeMillis() < (time - 9000)) {
+					drive(0, 15);
+					resetAdd();
+				} else {
+					if (System.currentTimeMillis() < (time - 3000)) {
+						drive(0.05, 0);
+					} else {
+						if (System.currentTimeMillis() < (time)) {
+							drive(0, 30);
+							resetAdd();
+						}
+
+						else {
+							exec_LINECTRL_ALGO();
+						}
+					}
+				}
+			}
+		}
 	}
+
+	private void drive(double velocity, double winkel) {
+		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
+		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
+		addL = addL + admL.getAngleSum();
+		addR = addR + admR.getAngleSum();
+		leftMotor.forward();
+		rightMotor.forward();
+		deltaT = admL.getDeltaT();
+		// sum = sum + deltaT;
+		int wheelDistance = 0; // nochmal unbedingt nachmessen
+		double radiusM;
+		double velTurn = (((7 / 5D) * (velocity * 100D)) + 20D);
+		if (winkel == 0) { // do something to drive straight forward
+			radiusM = velocity;//velTurn;
+			wheelDistance = 0;
+		} else {
+			radiusM = velocity / winkel;
+			//double radDeg = Math.toRadians(winkel);
+			if (radiusM == 0) {
+
+				speedL = (((1 / 5D) * winkel) + 13D);
+
+				leftMotor.setPower((int) -speedL);
+				rightMotor.setPower((int) speedL);
+				addL = 0;
+				addR = 0;
+				leftMotor.resetTachoCount();
+				rightMotor.resetTachoCount();
+				// monitor.writeControlComment("LEftMotorTurn" + (int) speedL +
+				// "RightMotorTurn" + (int) -speedL
+				// + "anglesumLeft" + addL + "anglesumright" + addR + "end");
+			} else {
+				wheelDistance = 10;
+			}
+		}
+		double velocityL = ((radiusM - (wheelDistance / 2)) * (velocity / radiusM))-1;
+		double velocityR = (radiusM + (wheelDistance / 2)) * (velocity / radiusM);
+		if (velocity != 0) {
+			// double anglesumL = admL.getAngleSum(); // Returns revolutions
+			// after
+			// last
+			// double angleSumR = admR.getAngleSum();
+			tempErrorVWLeft = addL - addR;
+			tempErrorVWRight = addR - addL;
+			double correctionL = 0;
+			double correctionR = 0;
+			if (tempErrorVWLeft > 0) {
+				correctionL = (0.4 * (tempErrorVWLeft) + 0.8 * (tempErrorVWLeft - lastErrorVWLeft));
+				leftMotor.setPower((int) (velocityL - correctionL));
+				rightMotor.setPower((int) velocityR);
+			} else if (addR - addL > 0) {
+				correctionR = (0.4 * (tempErrorVWRight) + 0.8 * (tempErrorVWRight - lastErrorVWRight));
+				rightMotor.setPower((int) (velocityR - correctionR));
+				leftMotor.setPower((int) velocityL);
+			} else if (addL - addR < 1) {
+				rightMotor.setPower((int) velocityR);
+				leftMotor.setPower((int) velocityL);
+			}
+
+			/*
+			 * monitor.writeControlComment("LEftMotor" + (int) velocityL +
+			 * "RightMotor" + (int) velocityR + "anglesumLeft" + addL +
+			 * "anglesumright" + addR + "Rechts " + addR + "Links" + addL +
+			 * "correctionL " + correctionL + "correction R" + correctionR +
+			 * "end");
+			 */
+			lastErrorVWLeft = tempErrorVWLeft;
+			lastErrorVWRight = tempErrorVWRight;
+		}
+	}
+
+ private void resetAdd(){
+	 addL=0;
+	 addR=0;
+ }
 }
+

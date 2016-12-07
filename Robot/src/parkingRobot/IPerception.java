@@ -12,6 +12,8 @@ public interface IPerception {
 	public int getLSlwhiteValue();
 	public int getLSrwhiteValue();
 	public int getLSwhiteValues();
+	public int getLeftRough();
+	public int getRightRough();
 	
 	
 	/**

@@ -94,7 +94,7 @@ public class GuidanceAT {
 	 * @param args standard string arguments for main method
 	 * @throws Exception exception for thread management
 	 */
-	navigation.setMap(map);
+	//navigation.setMap(map);
 	
 	public static void main(String[] args) throws Exception {		
         currentStatus = CurrentStatus.INACTIVE;
