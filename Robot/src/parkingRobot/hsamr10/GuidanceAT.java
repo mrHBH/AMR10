@@ -94,7 +94,6 @@ public class GuidanceAT {
 	 * @param args standard string arguments for main method
 	 * @throws Exception exception for thread management
 	 */
-	//navigation.setMap(map);
 	
 	public static void main(String[] args) throws Exception {		
         currentStatus = CurrentStatus.INACTIVE;
@@ -115,6 +114,7 @@ public class GuidanceAT {
 		IControl    control    = new ControlRST(perception, navigation, leftMotor, rightMotor, monitor);
 		INxtHmi  	hmi        = new HmiPLT(perception, navigation, control, monitor);
 		
+		navigation.setMap(map);
 		monitor.startLogging();
 				
 		while(true) {
