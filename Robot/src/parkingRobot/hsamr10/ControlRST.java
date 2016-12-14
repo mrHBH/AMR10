@@ -205,8 +205,8 @@ public class ControlRST implements IControl {
 		switch (currentCTRLMODE)
 		{
 		  case LINE_CTRL	: update_LINECTRL_Parameter();
-		                      //exec_LINECTRL_ALGO();
-		                      testdrive();
+		                      exec_LINECTRL_ALGO();
+		                      //testdrive();
 		                      break;
 		  case VW_CTRL		: update_VWCTRL_Parameter();
 		   					  exec_VWCTRL_ALGO();

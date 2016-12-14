@@ -33,7 +33,7 @@ public class PerceptionPMP implements IPerception {
 	static final int RS485_BAUD = 38400;
 	
 	LightSensor leftLight 	= new LightSensor(SensorPort.S2);
-	LightSensor rightLight 	= new LightSensor(SensorPort.S1);
+	LightSensor rightLight 	= new LightSensor(SensorPort.S3);
 	
 	int RightLineSensor		=	0;
 	int LeftLineSensor		=	0;
@@ -93,10 +93,10 @@ public class PerceptionPMP implements IPerception {
 	
 	public synchronized int getLeftLineSensor() {
 		int groundtype =1;	//standard: no black or white ground
-		if(this.LeftLineSensor < (this.LSlblack)){	//black ground
+		if(this.LeftLineSensor < (this.LSlblack+3)){	//black ground
 			groundtype=2;
 		}
-		if(this.LeftLineSensor > (this.LSlwhite)){ //white ground
+		if(this.LeftLineSensor > (this.LSlwhite-5)){ //white ground
 			groundtype=0;
 		}
 		return groundtype;
@@ -104,10 +104,10 @@ public class PerceptionPMP implements IPerception {
 	public synchronized int getRightLineSensor() {
 		int groundtype =1;	//standard: no black or white ground
 		
-		if(this.RightLineSensor < (this.LSrblack)){	//black ground
+		if(this.RightLineSensor < (this.LSrblack+3)){	//black ground
 			groundtype=2;
 		}
-		if(this.RightLineSensor > (this.LSrwhite)){ //white ground
+		if(this.RightLineSensor > (this.LSrwhite-5)){ //white ground
 			groundtype=0;
 		}
 		return groundtype;
