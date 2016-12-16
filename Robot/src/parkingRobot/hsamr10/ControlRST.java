@@ -1,6 +1,5 @@
 package parkingRobot.hsamr10;
 
-
 import lejos.robotics.navigation.Pose;
 import parkingRobot.IControl;
 import parkingRobot.IMonitor;
@@ -17,66 +16,70 @@ import parkingRobot.INavigation;
  *
  */
 public class ControlRST implements IControl {
-	
+
 	/**
-	 * reference to {@link IPerception.EncoderSensor} class for left robot wheel which measures the wheels angle difference
-	 * between actual an last request
+	 * reference to {@link IPerception.EncoderSensor} class for left robot wheel
+	 * which measures the wheels angle difference between actual an last request
 	 */
-	IPerception.EncoderSensor encoderLeft							=	null;
+	IPerception.EncoderSensor encoderLeft = null;
 	/**
-	 * reference to {@link IPerception.EncoderSensor} class for right robot wheel which measures the wheels angle difference
-	 * between actual an last request
+	 * reference to {@link IPerception.EncoderSensor} class for right robot
+	 * wheel which measures the wheels angle difference between actual an last
+	 * request
 	 */
-	IPerception.EncoderSensor encoderRight							=	null;
-	
+	IPerception.EncoderSensor encoderRight = null;
+
 	/**
-	 * reference to data class for measurement of the left wheels angle difference between actual an last request and the
-	 * corresponding time difference
+	 * reference to data class for measurement of the left wheels angle
+	 * difference between actual an last request and the corresponding time
+	 * difference
 	 */
-	IPerception.AngleDifferenceMeasurement angleMeasurementLeft 	= 	null;
+	IPerception.AngleDifferenceMeasurement angleMeasurementLeft = null;
 	/**
-	 * reference to data class for measurement of the right wheels angle difference between actual an last request and the
-	 * corresponding time difference
+	 * reference to data class for measurement of the right wheels angle
+	 * difference between actual an last request and the corresponding time
+	 * difference
 	 */
-	IPerception.AngleDifferenceMeasurement angleMeasurementRight	= 	null;
-	
+	IPerception.AngleDifferenceMeasurement angleMeasurementRight = null;
+
 	/**
-	 * line information measured by right light sensor: 0 - beside line, 1 - on line border or gray underground, 2 - on line
+	 * line information measured by right light sensor: 0 - beside line, 1 - on
+	 * line border or gray underground, 2 - on line
 	 */
-	int lineSensorRight	=	0;
+	int lineSensorRight = 0;
 	/**
-	 * line information measured by left light sensor: 0 - beside line, 1 - on line border or gray underground, 2 - on line
+	 * line information measured by left light sensor: 0 - beside line, 1 - on
+	 * line border or gray underground, 2 - on line
 	 */
-	int lineSensorLeft	=	0;
-	
+	int lineSensorLeft = 0;
+
 	NXTMotor leftMotor = null;
 	NXTMotor rightMotor = null;
-	
+
 	IPerception perception = null;
 	INavigation navigation = null;
 	IMonitor monitor = null;
 	ControlThread ctrlThread = null;
 
-    int leftMotorPower = 0;
+	int leftMotorPower = 0;
 	int rightMotorPower = 0;
-	
-	
+
 	Pose startPosition = new Pose();
 	Pose currentPosition = new Pose();
 	Pose destination = new Pose();
-	
+
 	ControlMode currentCTRLMODE = null;
-	
-	EncoderSensor controlRightEncoder    = null;
-	EncoderSensor controlLeftEncoder     = null;
+
+	EncoderSensor controlRightEncoder = null;
+	EncoderSensor controlLeftEncoder = null;
 
 	int lastTime = 0;
-	
-    double currentDistance = 0.0;
-    double Distance = 0.0;
-  
-    // #### drive
-    double Kp = 0; // 0.
+
+	double currentDistance = 0.0;
+	double Distance = 0.0;
+
+	// #### drive
+	double Kp = 0; // 0.
 	double Ki = 0;
 	double Kd = 0;
 	int pi = 0;
@@ -103,49 +106,58 @@ public class ControlRST implements IControl {
 	Timer timer = new Timer();
 	private long time = 0;
 	private static int mutex = 0;
+	double integral = 0;
+	double difference = 0;
 
-	
-	
 	/**
-	 * provides the reference transfer so that the class knows its corresponding navigation object (to obtain the current 
-	 * position of the car from) and starts the control thread.
+	 * provides the reference transfer so that the class knows its corresponding
+	 * navigation object (to obtain the current position of the car from) and
+	 * starts the control thread.
 	 * 
-	 * @param perception corresponding main module Perception class object
-	 * @param navigation corresponding main module Navigation class object
-	 * @param monitor corresponding main module Monitor class object
-	 * @param leftMotor corresponding NXTMotor object
-	 * @param rightMotor corresponding NXTMotor object
+	 * @param perception
+	 *            corresponding main module Perception class object
+	 * @param navigation
+	 *            corresponding main module Navigation class object
+	 * @param monitor
+	 *            corresponding main module Monitor class object
+	 * @param leftMotor
+	 *            corresponding NXTMotor object
+	 * @param rightMotor
+	 *            corresponding NXTMotor object
 	 */
-	public ControlRST(IPerception perception, INavigation navigation, NXTMotor leftMotor, NXTMotor rightMotor, IMonitor monitor){
+	public ControlRST(IPerception perception, INavigation navigation, NXTMotor leftMotor, NXTMotor rightMotor,
+			IMonitor monitor) {
 		this.perception = perception;
-        this.navigation = navigation;
-        this.monitor = monitor;
+		this.navigation = navigation;
+		this.monitor = monitor;
 		this.leftMotor = leftMotor;
 		this.rightMotor = rightMotor;
-		
+
 		this.currentCTRLMODE = ControlMode.INACTIVE;
-			
-		this.encoderLeft  = perception.getControlLeftEncoder();
+
+		this.encoderLeft = perception.getControlLeftEncoder();
 		this.encoderRight = perception.getControlRightEncoder();
-		this.lineSensorRight		= perception.getRightLineSensor();
-		this.lineSensorLeft  		= perception.getLeftLineSensor();
-		
+		this.lineSensorRight = perception.getRightLineSensor();
+		this.lineSensorLeft = perception.getLeftLineSensor();
+
 		// MONITOR (example)
 		monitor.addControlVar("RightSensor");
 		monitor.addControlVar("LeftSensor");
-		
+
 		this.ctrlThread = new ControlThread(this);
-		
+
 		ctrlThread.setPriority(Thread.MAX_PRIORITY - 1);
-		ctrlThread.setDaemon(true); // background thread that is not need to terminate in order for the user program to terminate
+		ctrlThread.setDaemon(true); // background thread that is not need to
+									// terminate in order for the user program
+									// to terminate
 		ctrlThread.start();
 	}
-	
 
 	// Inputs
-	
+
 	/**
 	 * set velocity
+	 * 
 	 * @see parkingRobot.IControl#setVelocity(double velocity)
 	 */
 	public void setVelocity(double velocity) {
@@ -154,33 +166,34 @@ public class ControlRST implements IControl {
 
 	/**
 	 * set angular velocity
+	 * 
 	 * @see parkingRobot.IControl#setAngularVelocity(double angularVelocity)
 	 */
 	public void setAngularVelocity(double angularVelocity) {
 		this.angularVelocity = angularVelocity;
 
 	}
-	
+
 	/**
 	 * set destination
-	 * @see parkingRobot.IControl#setDestination(double heading, double x, double y)
+	 * 
+	 * @see parkingRobot.IControl#setDestination(double heading, double x,
+	 *      double y)
 	 */
-	public void setDestination(double heading, double x, double y){
+	public void setDestination(double heading, double x, double y) {
 		this.destination.setHeading((float) heading);
 		this.destination.setLocation((float) x, (float) y);
 	}
-	
 
-	
 	/**
 	 * sets current pose
+	 * 
 	 * @see parkingRobot.IControl#setPose(Pose currentPosition)
 	 */
 	public void setPose(Pose currentPosition) {
 		// TODO Auto-generated method stub
 		this.currentPosition = currentPosition;
 	}
-	
 
 	/**
 	 * set control mode
@@ -188,103 +201,107 @@ public class ControlRST implements IControl {
 	public void setCtrlMode(ControlMode ctrl_mode) {
 		this.currentCTRLMODE = ctrl_mode;
 	}
-		
+
 	/**
 	 * set start time
 	 */
-	public void setStartTime(int startTime){
+	public void setStartTime(int startTime) {
 		this.lastTime = startTime;
 	}
-	
+
 	/**
 	 * selection of control-mode
+	 * 
 	 * @see parkingRobot.IControl#exec_CTRL_ALGO()
 	 */
-	public void exec_CTRL_ALGO(){
-		
-		switch (currentCTRLMODE)
-		{
-		  case LINE_CTRL	: update_LINECTRL_Parameter();
-		                      exec_LINECTRL_ALGO();
-		                      //testdrive();
-		                      break;
-		  case VW_CTRL		: update_VWCTRL_Parameter();
-		   					  exec_VWCTRL_ALGO();
-		   					  break; 
-		  case SETPOSE      : update_SETPOSE_Parameter();
-			  				  exec_SETPOSE_ALGO();
-		                      break;
-		  case PARK_CTRL	: update_PARKCTRL_Parameter();
-		  					  exec_PARKCTRL_ALGO();
-		  					  break;		  					  
-		  case INACTIVE 	: exec_INACTIVE();
-			                  break;
+	public void exec_CTRL_ALGO() {
+
+		switch (currentCTRLMODE) {
+		case LINE_CTRL:
+			update_LINECTRL_Parameter();
+			// exec_LINECTRL_ALGO();
+			testdrive();
+			break;
+		case VW_CTRL:
+			update_VWCTRL_Parameter();
+			exec_VWCTRL_ALGO();
+			break;
+		case SETPOSE:
+			update_SETPOSE_Parameter();
+			exec_SETPOSE_ALGO();
+			break;
+		case PARK_CTRL:
+			update_PARKCTRL_Parameter();
+			exec_PARKCTRL_ALGO();
+			break;
+		case INACTIVE:
+			exec_INACTIVE();
+			break;
 		}
 
 	}
-	
+
 	// Private methods
-	
+
 	/**
 	 * update parameters during VW Control Mode
 	 */
-	private void update_VWCTRL_Parameter(){
+	private void update_VWCTRL_Parameter() {
 		setPose(navigation.getPose());
 	}
-	
+
 	/**
 	 * update parameters during SETPOSE Control Mode
 	 */
-	private void update_SETPOSE_Parameter(){
+	private void update_SETPOSE_Parameter() {
 		setPose(navigation.getPose());
 	}
-	
+
 	/**
 	 * update parameters during PARKING Control Mode
 	 */
-	private void update_PARKCTRL_Parameter(){
-		//Aufgabe 3.4
+	private void update_PARKCTRL_Parameter() {
+		// Aufgabe 3.4
 	}
 
 	/**
 	 * update parameters during LINE Control Mode
 	 */
-	private void update_LINECTRL_Parameter(){
-		this.lineSensorRight		= perception.getRightLineSensor();
-		this.lineSensorLeft  		= perception.getLeftLineSensor();		
+	private void update_LINECTRL_Parameter() {
+		this.lineSensorRight = perception.getRightLineSensor();
+		this.lineSensorLeft = perception.getLeftLineSensor();
 	}
-	
+
 	/**
-	 * The car can be driven with velocity in m/s or angular velocity in grade during VW Control Mode
-	 * optionally one of them could be set to zero for simple test.
+	 * The car can be driven with velocity in m/s or angular velocity in grade
+	 * during VW Control Mode optionally one of them could be set to zero for
+	 * simple test.
 	 */
-    private void exec_VWCTRL_ALGO(){  
+	private void exec_VWCTRL_ALGO() {
 		this.drive(this.velocity, this.angularVelocity);
 	}
-	
-    private void exec_SETPOSE_ALGO(){
-    	//Aufgabe 3.3
+
+	private void exec_SETPOSE_ALGO() {
+		// Aufgabe 3.3
 	}
-	
+
 	/**
 	 * PARKING along the generated path
 	 */
-	private void exec_PARKCTRL_ALGO(){
-		//Aufgabe 3.4
+	private void exec_PARKCTRL_ALGO() {
+		// Aufgabe 3.4
 	}
-	
-    private void exec_INACTIVE(){
-    	this.stop();
+
+	private void exec_INACTIVE() {
+		this.stop();
 	}
-	
+
 	/**
-	 * DRIVING along black line
-	 * Minimalbeispiel
-	 * Linienverfolgung fuer gegebene Werte 0,1,2
-	 * white = 0, black = 2, grey = 1
+	 * DRIVING along black line Minimalbeispiel Linienverfolgung fuer gegebene
+	 * Werte 0,1,2 white = 0, black = 2, grey = 1
 	 */
-    
-	private void exec_LINECTRL_ALGO(){
+
+	private void exec_LINECTRL_ALGO() {
 		leftMotor.forward();
 		rightMotor.forward();
 		double Kiline = 0;
@@ -305,22 +322,22 @@ public class ControlRST implements IControl {
 			leftMotor.setPower(1);
 			rightMotor.setPower(35);
 			monitor.writeControlComment("turn left");
-		//	turnBefore = true;
+			// turnBefore = true;
 		} else if (this.lineSensorRight == 2 && (this.lineSensorLeft == 1)) { // Rechts
 			leftMotor.setPower(35);
 			rightMotor.setPower(1);
 			monitor.writeControlComment("turn right");
-			//turnBefore = true;
+			// turnBefore = true;
 		} else if (this.lineSensorLeft == 2 && (this.lineSensorRight == 0)) {
 			rightMotor.setPower(45);
 			leftMotor.setPower(1);
 			monitor.writeControlComment("turn leftKurve");
-		//	turnBefore = true;
+			// turnBefore = true;
 		} else if (this.lineSensorRight == 2 && (this.lineSensorLeft == 0)) {
 			leftMotor.setPower(45);
 			rightMotor.setPower(1);
 			monitor.writeControlComment("turn rightKurve");
-		//	turnBefore = true;
+			// turnBefore = true;
 		}
 
 		else if (this.lineSensorLeft == 1 && this.lineSensorRight == 0) {
@@ -351,8 +368,8 @@ public class ControlRST implements IControl {
 				leftMotor.setPower(35);
 				monitor.writeControlComment("PIDL1" + speed + "differenceErrorL" + differenceErrorL);
 				lastErrorL = differenceErrorL;
-			//	turnBefore=true;
-			} 
+				// turnBefore=true;
+			}
 			/*
 			 * speed_pid = (int) (0.25 * temp_differenz + 0.25 * (temp_differenz
 			 * - last_ldifferenz)); last_ldifferenz = temp_differenz; int pgs =
@@ -392,7 +409,7 @@ public class ControlRST implements IControl {
 				monitor.writeControlComment("PIDR1L0" + speed + "differenceErrorR" + differenceErrorR);
 				monitor.addControlVar("speed" + speed);
 				lastErrorR = differenceErrorR;
-		//		turnBefore=true;
+				// turnBefore=true;
 			} /*
 				 * int temp_differenz = rightWhite - tempValue;
 				 * 
@@ -410,12 +427,12 @@ public class ControlRST implements IControl {
 				 */
 		} else if (this.lineSensorLeft == 2 && this.lineSensorRight == 2) { //
 			minischub();
-//			turnBefore = false;
+			// turnBefore = false;
 		}
 
 		else if (this.lineSensorLeft == 0 && this.lineSensorRight == 0) { //
-	//		turnBefore = false;
-		//	drive(37, 0);
+			// turnBefore = false;
+			// drive(37, 0);
 			leftMotor.setPower(37);
 			rightMotor.setPower(37);
 		}
@@ -429,12 +446,11 @@ public class ControlRST implements IControl {
 
 		// brake();
 	}
-	
-	private void stop(){
+
+	private void stop() {
 		this.leftMotor.stop();
 		this.rightMotor.stop();
 	}
-		
 
 	/**
 	 * calculates the left and right angle speed of the both motors with given
@@ -457,27 +473,13 @@ public class ControlRST implements IControl {
 		if (time != 0) {
 			// ######### drive 10cm/s for 15s ###################
 			if (System.currentTimeMillis() < (time - 15000)) {
-				drive(0.1, 0);
-			} else {
-				if (System.currentTimeMillis() < (time - 9000)) {
-					drive(0, 15);
-					resetAdd();
-				} else {
-					if (System.currentTimeMillis() < (time - 3000)) {
-						drive(0.05, 0);
-					} else {
-						if (System.currentTimeMillis() < (time)) {
-							drive(0, 30);
-							resetAdd();
-						}
-
-						else {
-							exec_LINECTRL_ALGO();
-						}
-					}
+				drive(30, 0); 
 				}
-			}
+	
+			else { leftMotor.setPower(0);rightMotor.setPower(0);}
 		}
+
+
 	}
 
 	private void drive(double velocity, double winkel) {
@@ -487,73 +489,79 @@ public class ControlRST implements IControl {
 		addR = addR + admR.getAngleSum();
 		leftMotor.forward();
 		rightMotor.forward();
-		deltaT = admL.getDeltaT();
-		// sum = sum + deltaT;
+		admL.setDeltaT(50);
+		admR.setDeltaT(50);
 		int wheelDistance = 0; // nochmal unbedingt nachmessen
 		double radiusM;
 		double velTurn = (((7 / 5D) * (velocity * 100D)) + 20D);
 		if (winkel == 0) { // do something to drive straight forward
-			radiusM = velocity;//velTurn;
+			radiusM = velocity;// velTurn;
 			wheelDistance = 0;
 		} else {
 			radiusM = velocity / winkel;
-			//double radDeg = Math.toRadians(winkel);
+			// double radDeg = Math.toRadians(winkel);
 			if (radiusM == 0) {
+				if(addR <150) {
+					speedL = 30;// (((1 / 5D) * winkel) + 13D);
+					double Kp = 0.2;
+					double Ki_line = 0.1;
+					double Kd_line = 0;
+					tempErrorVWLeft = addL + addR;
+					if (tempErrorVWLeft == 0) {
+						integral = 0;
+					} // Do an antiwindupcontrol
+					integral = integral + tempErrorVWLeft;
+					difference = tempErrorVWLeft - lastErrorVWLeft;
+					double ks = (Kp * tempErrorVWLeft) + (Ki_line * integral) + (Kd_line * difference);
 
-				speedL = (((1 / 5D) * winkel) + 13D);
-
-				leftMotor.setPower((int) -speedL);
-				rightMotor.setPower((int) speedL);
-				addL = 0;
-				addR = 0;
-				leftMotor.resetTachoCount();
-				rightMotor.resetTachoCount();
-				// monitor.writeControlComment("LEftMotorTurn" + (int) speedL +
-				// "RightMotorTurn" + (int) -speedL
-				// + "anglesumLeft" + addL + "anglesumright" + addR + "end");
+					leftMotor.setPower((int) (-speedL - ks));
+					rightMotor.setPower((int) (speedL - ks));
+					/*
+					 * addL = 0; addR = 0; leftMotor.resetTachoCount();
+					 * rightMotor.resetTachoCount();
+					 */
+					monitor.writeControlComment(
+							"LEft" + addL + "RightMotorTurn" + addR + ":" + tempErrorVWLeft + ":" + ks);
+					// + "anglesumLeft" + addL + "anglesumright" + addR +
+					// "end");
+				} else {
+					leftMotor.setPower(0);
+					rightMotor.setPower(0);
+				}
 			} else {
 				wheelDistance = 10;
 			}
 		}
-		double velocityL = ((radiusM - (wheelDistance / 2)) * (velocity / radiusM))-1;
+		double velocityL = ((radiusM - (wheelDistance / 2)) * (velocity / radiusM)) - 1;
 		double velocityR = (radiusM + (wheelDistance / 2)) * (velocity / radiusM);
 		if (velocity != 0) {
 			// double anglesumL = admL.getAngleSum(); // Returns revolutions
 			// after
 			// last
 			// double angleSumR = admR.getAngleSum();
-			tempErrorVWLeft = addL - addR;
-			tempErrorVWRight = addR - addL;
-			double correctionL = 0;
-			double correctionR = 0;
-			if (tempErrorVWLeft > 0) {
-				correctionL = (0.4 * (tempErrorVWLeft) + 0.8 * (tempErrorVWLeft - lastErrorVWLeft));
-				leftMotor.setPower((int) (velocityL - correctionL));
-				rightMotor.setPower((int) velocityR);
-			} else if (addR - addL > 0) {
-				correctionR = (0.4 * (tempErrorVWRight) + 0.8 * (tempErrorVWRight - lastErrorVWRight));
-				rightMotor.setPower((int) (velocityR - correctionR));
-				leftMotor.setPower((int) velocityL);
-			} else if (addL - addR < 1) {
-				rightMotor.setPower((int) velocityR);
-				leftMotor.setPower((int) velocityL);
-			}
 
-			/*
-			 * monitor.writeControlComment("LEftMotor" + (int) velocityL +
-			 * "RightMotor" + (int) velocityR + "anglesumLeft" + addL +
-			 * "anglesumright" + addR + "Rechts " + addR + "Links" + addL +
-			 * "correctionL " + correctionL + "correction R" + correctionR +
-			 * "end");
-			 */
+			double Kp = 0.9;
+			double Ki_line = 0.17;
+			double Kd_line = 0;
+			tempErrorVWLeft = addL - addR;
+			if (tempErrorVWLeft == 0) {
+				integral = 0;
+			} // Do an antiwindupcontrol
+			integral = integral + tempErrorVWLeft;
+			difference = tempErrorVWLeft - lastErrorVWLeft;
+			double ks = (Kp * tempErrorVWLeft) + (Ki_line * integral) + (Kd_line * difference);
+			int left = (int) (35 - ks);
+			int right = (int) (35 + ks);
+			leftMotor.setPower(left);
+			rightMotor.setPower(right);
+			monitor.writeControlComment("links" + ks + ":" + left + ":" + right);
+
 			lastErrorVWLeft = tempErrorVWLeft;
-			lastErrorVWRight = tempErrorVWRight;
 		}
 	}
 
- private void resetAdd(){
-	 addL=0;
-	 addR=0;
- }
+	private void resetAdd() {
+		addL = 0;
+		addR = 0;
+	}
 }
-
