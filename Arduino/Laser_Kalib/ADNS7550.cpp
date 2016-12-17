@@ -1,9 +1,9 @@
 /*
  ADNS7550.cpp - Part of optical mouse sensor library for Arduino
- Copyright (c) 2012 Daniel Körner.  All right reserved.
+ Copyright (c) 2012 Daniel Kï¿½rner.  All right reserved.
  Based on code by Martijn The. (http://www.martijnthe.nl/)
  Mohammad Kouchekzadeh (mohammad3d@yahoo.com)
- Based on sketches by Benoît Rousseau.
+ Based on sketches by Benoï¿½t Rousseau.
  
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
@@ -101,7 +101,7 @@ int ADNS7550::get_px_count(void)
 	digitalWrite(_ncsPin, LOW);
 	
 	//Note:in write operation The first byte contains the address (seven bits) and
-	//     has a “1” as its MSB to indicate data direction : 0x3A->0xBA
+	//     has a ï¿½1ï¿½ as its MSB to indicate data direction : 0x3A->0xBA
 	//Note:in read operation address MSB bit is '0': 0x3A->0x3A
 
 	//Write 0x5a to register 0x3a
@@ -548,3 +548,4 @@ void ADNS7550::writeRegister(uint8_t address, uint8_t data)
 		delayMicroseconds(100);
 	}
 }
+

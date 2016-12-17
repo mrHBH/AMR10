@@ -1,9 +1,9 @@
 /*
  ADNS7550.h - Part of optical mouse sensor library for Arduino
- Copyright (c) 2012 Daniel Körner.  All right reserved.
+ Copyright (c) 2012 Daniel Kï¿½rner.  All right reserved.
  Based on code by Martijn The. (http://www.martijnthe.nl/)
  Mohammad Kouchekzadeh (mohammad3d@yahoo.com)
- Based on sketches by Benoît Rousseau.
+ Based on sketches by Benoï¿½t Rousseau.
  
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
@@ -77,3 +77,4 @@ class ADNS7550
 };
 
 #endif
+
