@@ -32,8 +32,8 @@ const byte BACKSIDE = 3;
 
 //MausodometrieVariablen
 //Mauskallibrierwerte
-const int Msx = 45;      //Pixel per mm
-const int Msy = 45;
+const int Msx = 44;      //Pixel per mm
+const int Msy = 41;
 
 signed int Mdx = 0;      //bewegte Strecke           
 signed int Mdy = 0;      //

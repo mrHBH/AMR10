@@ -261,26 +261,50 @@ public class PerceptionPMP implements IPerception {
 		double frontSensorValue = (double)(((sensorBytes[11] & 0xff)<<8) | (sensorBytes[10] & 0xff));
 		double backSensorValue = (double)(((sensorBytes[13] & 0xff)<<8) | (sensorBytes[12] & 0xff));
 		
-		if(frontSensorValue <= 30.0)
+		if(frontSensorValue <= 30.0){
+			if(frontSensorValue >= 4)
+				frontSensorValue -= 4;
+			else
+				frontSensorValue = 0;
+		
 			this.FrontSensorDistance = frontSensorValue;
+		}
 		else
 			this.FrontSensorDistance = Double.POSITIVE_INFINITY;
 		
-		if(frontSideSensorValue <= 30.0)
+		if(frontSideSensorValue <= 30.0){
+			if(frontSideSensorValue >= 4)
+				frontSideSensorValue -= 4;
+			else
+				frontSideSensorValue = 0;
+		
 			this.FrontSideSensorDistance =	frontSideSensorValue;
+		}
 		else
 			this.FrontSideSensorDistance = Double.POSITIVE_INFINITY;
 		
-		if(backSensorValue <= 30.0)
+		if(backSensorValue <= 30.0){
+			if(backSensorValue >= 4)
+				backSensorValue -= 4;
+			else
+				backSensorValue = 0;
 			this.BackSensorDistance	= backSensorValue;
+		}
 		else
 			this.BackSensorDistance = Double.POSITIVE_INFINITY;
 		
-		if(backSideSensorValue <= 30.0)
+		if(backSideSensorValue <= 30.0){
+			if(backSideSensorValue >= 4)
+				backSideSensorValue -= 4;
+			else
+				backSideSensorValue = 0;
 			this.BackSideSensorDistance	= backSideSensorValue;
+		}
 		else
 			this.BackSideSensorDistance = Double.POSITIVE_INFINITY;
 
+		
+		
 		this.controlOdo.addShift(this.UOdmometry,this.VOdometry,this.OdometryT);
 		this.navigationOdo.addShift(this.UOdmometry,this.VOdometry,this.OdometryT);
 	}
