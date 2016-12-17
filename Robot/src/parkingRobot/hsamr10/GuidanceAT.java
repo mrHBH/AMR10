@@ -197,7 +197,7 @@ public class GuidanceAT {
 				break;
         	}
         		
-        	Thread.sleep(50);        	
+        	Thread.sleep(10);        	
 		}
 	}
 	
