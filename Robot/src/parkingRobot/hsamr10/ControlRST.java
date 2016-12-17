@@ -82,6 +82,12 @@ public class ControlRST implements IControl {
 	int lastErrorL = 0;
 	int differenceErrorL = 1;
 	int integralLine = 0;
+	float Kpline = 1.1f;
+	float KiLine = 0.1f;
+	float Kdline = 0.9f;
+	int pdline =0;
+	int ksline =0;
+	
 	// #### drive
 	double Kp = 0; // 0.
 	double Ki = 0;
@@ -312,15 +318,12 @@ public class ControlRST implements IControl {
 	private void exec_LINECTRL_ALGO() {
 		leftMotor.forward();
 		rightMotor.forward();
-		double Kpline = 1.1;
-		double KiLine = 0.1;
-		double Kdline = 0.9;
 		
 		monitor.writeControlVar("LeftSensor", "" + this.lineSensorLeft);
 		monitor.writeControlVar("RightSensor", "" + this.lineSensorRight);
 		differenceErrorL = perception.getLeftRough() - perception.getRightRough();
 		integralLine = integralLine + differenceErrorL;
-		int pdline = differenceErrorL - lastErrorL;
+		pdline = differenceErrorL - lastErrorL;
 		lastErrorL = differenceErrorL;
 		if(Math.abs(differenceErrorL) < 4  ){integralLine = 0;}
 		if (differenceErrorL > 15) {
@@ -332,7 +335,7 @@ public class ControlRST implements IControl {
 				leftMotor.setPower(0);
 				rightMotor.setPower(40);
 			} else {
-				int ksline = (int) ((Kpline * differenceErrorL) + (Kdline * pdline)+ KiLine*integralLine);
+				ksline = (int) ((Kpline * differenceErrorL) + (Kdline * pdline)+ KiLine*integralLine);
 				rightMotor.setPower(30 - ksline);// - speed);
 				leftMotor.setPower(30 + ksline);
 				monitor.writeControlComment("PIDL1" + ksline + "differenceErrorL" + differenceErrorL);
