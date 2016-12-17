@@ -319,8 +319,8 @@ public class ControlRST implements IControl {
 		leftMotor.forward();
 		rightMotor.forward();
 		
-		monitor.writeControlVar("LeftSensor", "" + this.lineSensorLeft);
-		monitor.writeControlVar("RightSensor", "" + this.lineSensorRight);
+	//	monitor.writeControlVar("LeftSensor", "" + this.lineSensorLeft);
+	//	monitor.writeControlVar("RightSensor", "" + this.lineSensorRight);
 		differenceErrorL = perception.getLeftRough() - perception.getRightRough();
 		integralLine = integralLine + differenceErrorL;
 		pdline = differenceErrorL - lastErrorL;
@@ -338,7 +338,7 @@ public class ControlRST implements IControl {
 				ksline = (int) ((Kpline * differenceErrorL) + (Kdline * pdline)+ KiLine*integralLine);
 				rightMotor.setPower(30 - ksline);// - speed);
 				leftMotor.setPower(30 + ksline);
-				monitor.writeControlComment("PIDL1" + ksline + "differenceErrorL" + differenceErrorL);
+		//		monitor.writeControlComment("PIDL1" + ksline + "differenceErrorL" + differenceErrorL);
 			}
 		}
 	}
