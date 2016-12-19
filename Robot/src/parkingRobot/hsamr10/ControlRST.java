@@ -63,32 +63,26 @@ public class ControlRST implements IControl {
 
 	int leftMotorPower = 0;
 	int rightMotorPower = 0;
-
 	Pose startPosition = new Pose();
 	Pose currentPosition = new Pose();
 	Pose destination = new Pose();
-
 	ControlMode currentCTRLMODE = null;
-
 	EncoderSensor controlRightEncoder = null;
 	EncoderSensor controlLeftEncoder = null;
-
-	int lastTime = 0;
-
-	double currentDistance = 0.0;
-	double Distance = 0.0;
-
-	// Linefollower
+	int lastTime = 0; // #
+	double currentDistance = 0.0; // #
+	double Distance = 0.0; // #
+	// ####### Linefollower ###################################################
 	int lastErrorL = 0;
 	int differenceErrorL = 1;
 	int integralLine = 0;
 	float Kpline = 1.1f;
-	float KiLine = 0.1f;
+	float KiLine = 0f;
 	float Kdline = 0.9f;
-	int pdline =0;
-	int ksline =0;
-	
-	// #### drive
+	int pdline = 0;
+	int ksline = 0;
+	int offset = 35;
+	// #### drive ###########################################################
 	double Kp = 0; // 0.
 	double Ki = 0;
 	double Kd = 0;
@@ -103,7 +97,7 @@ public class ControlRST implements IControl {
 	double addL = 0;
 	double addR = 0;
 	double sum = 0;
-	// ++ vw control
+	// ########### vw control ########################
 	double umfang = 2 * Math.PI * 0.028;
 	double tempErrorVWLeft = 0;
 	double tempErrorVWRight = 0;
@@ -122,6 +116,8 @@ public class ControlRST implements IControl {
 	double fixAddR = 0;
 	int mutexTurn = 0;
 	int mutexStraight = 0;
+	// #### Set Pose #####
+	Pose currentPositionDegrees;
 
 	/**
 	 * provides the reference transfer so that the class knows its corresponding
@@ -207,6 +203,7 @@ public class ControlRST implements IControl {
 	public void setPose(Pose currentPosition) {
 		// TODO Auto-generated method stub
 		this.currentPosition = currentPosition;
+
 	}
 
 	/**
@@ -269,13 +266,15 @@ public class ControlRST implements IControl {
 	 */
 	private void update_SETPOSE_Parameter() {
 		setPose(navigation.getPose());
+		currentPositionDegrees.setLocation(currentPosition.getLocation());
+		currentPositionDegrees.setHeading((float) (currentPosition.getHeading() * (180 / Math.PI)));
 	}
 
 	/**
 	 * update parameters during PARKING Control Mode
 	 */
 	private void update_PARKCTRL_Parameter() {
-		// Aufgabe 3.4
+
 	}
 
 	/**
@@ -295,8 +294,74 @@ public class ControlRST implements IControl {
 		this.drive(this.velocity, this.angularVelocity);
 	}
 
+	/**
+	 * This is a function which turns the robot at a current position. The angle
+	 * it is turned is calculated in Degrees with the help of function
+	 * relativeBearing, which is returning an angle in degrees. This is the
+	 * reason why I had to implement a new Pose, where the heading is given in
+	 * degrees
+	 */
+	private void turnToLocation() {
+		boolean desiredHeading = false;
+		while (!desiredHeading) {
+			if (currentPositionDegrees.relativeBearing(destination.getLocation()) < -1) {
+				if (currentPositionDegrees.relativeBearing(destination.getLocation()) < -20) {
+					drive(0, -30);
+				} else {
+					drive(0, -20);
+				}
+			} else if (currentPosition.relativeBearing(destination.getLocation()) > 1) {
+				if (currentPosition.relativeBearing(destination.getLocation()) > 20) {
+					drive(0, 30);
+				} else {
+					drive(0, 20);
+				}
+			} else {
+				stop();
+				desiredHeading = true;
+			}
+
+		}
+	}
+
+	/**
+	 * This function will turn the robot after he received his final position
+	 * Therefore the remaining angle ( to turnDegrees ) is calculated. We have
+	 * to pay attention to overflows after calculation
+	 */
+	private void turnDefinedAngle() {
+		boolean finalDestination = false;
+		while (!finalDestination) {
+
+			double turnDegrees;
+			turnDegrees = (180 / Math.PI) * (destination.getHeading() - currentPosition.getHeading());
+			// ######## to avoid an overflow ########
+			if (turnDegrees < -180) {
+				turnDegrees = turnDegrees + 360;
+			} else if (turnDegrees > 180) {
+				turnDegrees = turnDegrees - 360;
+			}
+			// ######## turn until MAth.abs(angle) =1 #####
+			if (turnDegrees > 1) {
+				drive(0, 30);
+			} else if (turnDegrees < -1) {
+				drive(0, -30);
+			} else {
+				// ### break the while because we have reached the desired
+				// Heading
+				stop();
+				finalDestination = true;
+			}
+		}
+
+	}
+
 	private void exec_SETPOSE_ALGO() {
-		// Aufgabe 3.3
+		turnToLocation();
+		while (currentPosition.distanceTo(destination.getLocation()) != 0) {
+			drive(30, 0);
+		}
+		turnDefinedAngle();// need to turn to the right heading
 	}
 
 	/**
@@ -304,6 +369,7 @@ public class ControlRST implements IControl {
 	 */
 	private void exec_PARKCTRL_ALGO() {
 		// Aufgabe 3.4
+
 	}
 
 	private void exec_INACTIVE() {
@@ -318,29 +384,43 @@ public class ControlRST implements IControl {
 	private void exec_LINECTRL_ALGO() {
 		leftMotor.forward();
 		rightMotor.forward();
-		
-	//	monitor.writeControlVar("LeftSensor", "" + this.lineSensorLeft);
-	//	monitor.writeControlVar("RightSensor", "" + this.lineSensorRight);
+
+		// monitor.writeControlVar("LeftSensor", "" + this.lineSensorLeft);
+		// monitor.writeControlVar("RightSensor", "" + this.lineSensorRight);
 		differenceErrorL = perception.getLeftRough() - perception.getRightRough();
 		integralLine = integralLine + differenceErrorL;
 		pdline = differenceErrorL - lastErrorL;
 		lastErrorL = differenceErrorL;
-		if(Math.abs(differenceErrorL) < 4  ){integralLine = 0;}
-		if (differenceErrorL > 15) {
-				//drive(0, -30);
-				leftMotor.setPower(40);
-				rightMotor.setPower(0);
-		} else {
-			if (differenceErrorL < -15) {
-				leftMotor.setPower(0);
-				rightMotor.setPower(40);
-			} else {
-				ksline = (int) ((Kpline * differenceErrorL) + (Kdline * pdline)+ KiLine*integralLine);
-				rightMotor.setPower(30 - ksline);// - speed);
-				leftMotor.setPower(30 + ksline);
-		//		monitor.writeControlComment("PIDL1" + ksline + "differenceErrorL" + differenceErrorL);
-			}
+		if (Math.abs(differenceErrorL) == 0) {
+
+			// ((differenceErrorL>0 && lastErrorL <0) || (differenceErrorL<0 &&
+			// lastErrorL >0)) {
+			integralLine = 0;
 		}
+		if (Math.abs(differenceErrorL) > 15) {
+			while (differenceErrorL > 15) {
+				// drive(0, -30);
+				leftMotor.setPower((int) (33));
+				rightMotor.setPower(0);
+				differenceErrorL = perception.getLeftRough() - perception.getRightRough();
+
+			}
+			while (differenceErrorL < -15) {
+				leftMotor.setPower(0);
+				rightMotor.setPower((int) (33));
+				differenceErrorL = perception.getLeftRough() - perception.getRightRough();
+
+			}
+		} else {
+			
+			int start = offset -((perception.getLSlwhiteValue()+perception.getLSlblackValue())/2 - (perception.getRightRough() + perception.getLeftRough())/2);
+			ksline = (int) ((Kpline * differenceErrorL) + (Kdline * pdline) + KiLine * integralLine);
+			rightMotor.setPower(start - ksline);// - speed);
+			leftMotor.setPower(start + ksline);
+			// monitor.writeControlComment("PIDL1" + ksline +
+			// "differenceErrorL" + differenceErrorL);
+		}
+
 	}
 
 	private void minischub() {
@@ -502,4 +582,5 @@ public class ControlRST implements IControl {
 		addL = 0;
 		addR = 0;
 	}
+
 }
