@@ -358,8 +358,19 @@ public class ControlRST implements IControl {
 
 	private void exec_SETPOSE_ALGO() {
 		turnToLocation();
-		while (currentPosition.distanceTo(destination.getLocation()) != 0) {
-			drive(30, 0);
+		float yStart = currentPosition.getY();
+		float xStart = currentPosition.getX();
+		float phi = currentPositionDegrees.getHeading();
+		double calculatedPositionBefore=0;
+	 	while (currentPosition.distanceTo(destination.getLocation()) != 0) {
+			
+			double calcPos = (-(currentPosition.getX()-xStart)*Math.sin(phi)+ 
+					(currentPosition.getY()-yStart)*Math.cos(phi));
+			double kd = calcPos - calculatedPositionBefore;
+			double w = 10*calcPos + 2*kd;
+			calculatedPositionBefore =  calcPos ;
+			drive(30,w);
+			
 		}
 		turnDefinedAngle();// need to turn to the right heading
 	}
@@ -368,14 +379,32 @@ public class ControlRST implements IControl {
 	 * PARKING along the generated path
 	 */
 	private void exec_PARKCTRL_ALGO() {
-		// Aufgabe 3.4
-
+		 Pose neu = new Pose();
+		 neu.setLocation(currentPositionDegrees.getX()+2, 5);
+		 if ( currentPositionDegrees.relativeBearing(neu.getLocation()) <-1){
+			 drive(0,30);
+		 }
+		 if ( currentPositionDegrees.relativeBearing(neu.getLocation()) > 1){
+			 drive(0,-30);
+		 }
+		
+		 
 	}
 
 	private void exec_INACTIVE() {
 		this.stop();
 	}
 
+	private float calculatePoint(float x, float y){
+		// need to know exact function
+		return 0;
+		
+	}
+	
+	private float calculatePath(float x,float y){
+		// need to know 1st derivation of the function above
+		return 0;
+	}
 	/**
 	 * DRIVING along black line Minimalbeispiel Linienverfolgung fuer gegebene
 	 * Werte 0,1,2 white = 0, black = 2, grey = 1
@@ -392,9 +421,6 @@ public class ControlRST implements IControl {
 		pdline = differenceErrorL - lastErrorL;
 		lastErrorL = differenceErrorL;
 		if (Math.abs(differenceErrorL) == 0) {
-
-			// ((differenceErrorL>0 && lastErrorL <0) || (differenceErrorL<0 &&
-			// lastErrorL >0)) {
 			integralLine = 0;
 		}
 		if (Math.abs(differenceErrorL) > 15) {
@@ -412,8 +438,9 @@ public class ControlRST implements IControl {
 
 			}
 		} else {
-			
-			int start = offset -((perception.getLSlwhiteValue()+perception.getLSlblackValue())/2 - (perception.getRightRough() + perception.getLeftRough())/2);
+
+			int start = offset - ((perception.getLSlwhiteValue() + perception.getLSlblackValue()) / 2
+					- (perception.getRightRough() + perception.getLeftRough()) / 2);
 			ksline = (int) ((Kpline * differenceErrorL) + (Kdline * pdline) + KiLine * integralLine);
 			rightMotor.setPower(start - ksline);// - speed);
 			leftMotor.setPower(start + ksline);
@@ -474,6 +501,13 @@ public class ControlRST implements IControl {
 
 	}
 
+	
+	/** function to handle all avoidings/changes of driving direction
+	 * if winkel == 0, the car will drive Straight on with a given velocity
+	 * if velocity == 0 the car will turn on his place while it is interrupted from another function
+	 * if winkel > 0 left turn
+	 * if winkel < 0 right turn
+	 * if winkel && velocity != 0 the car will rotate in a calculated radius   */
 	private void drive(double velocity, double winkel) {
 		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
 		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
@@ -483,11 +517,11 @@ public class ControlRST implements IControl {
 		rightMotor.forward();
 		admL.setDeltaT(50);
 		admR.setDeltaT(50);
-		speedL = 30;// (((1 / 5D) * winkel) + 13D);
+		speedL =  (((1 / 3D) * winkel) + 20D);//30;// (((1 / 5D) * winkel) + 13D);
 		double Kp = 0.2;
 		double Ki_line = 0.1;
 		double Kd_line = 0;
-
+		// addL < 150 dreht 90 ° -> 600 dreht 360 
 		int wheelDistance = 0; // nochmal unbedingt nachmessen
 		double radiusM;
 		double velTurn = (((7 / 5D) * (velocity * 100D)) + 20D);
@@ -497,51 +531,27 @@ public class ControlRST implements IControl {
 		} else {
 			radiusM = velocity / winkel;
 			if (radiusM == 0) {
-				if (mutexTurn == 0) {
-					resetAdd();
-					mutexStraight = 0;
-					mutexTurn = 1;
-				}
+
 				if (winkel > 0) { // Turn lEft
-					if (addR < 150) {
-						tempErrorVWLeft = addL + addR; // one positiv and one
-														// negativ
-						if (tempErrorVWLeft == 0) {
-							integral = 0;
-						} // Do an antiwindupcontrol
+					tempErrorVWLeft = addL + addR; // one positiv and one// negativ
+					if (tempErrorVWLeft == 0) {integral = 0; } // Do an antiwindupcontrol
 						integral = integral + tempErrorVWLeft;
 						difference = tempErrorVWLeft - lastErrorVWLeft;
 						double ks = (Kp * tempErrorVWLeft) + (Ki_line * integral) + (Kd_line * difference);
-
 						leftMotor.setPower((int) (-speedL - ks));
-						rightMotor.setPower((int) (speedL - ks));
-					} else {
-						leftMotor.setPower(0);
-						rightMotor.setPower(0);
+						rightMotor.setPower((int) (speedL - ks)); }
 
-					}
-
-				}
 				if (winkel < 0) { // Turn lEft
-					if (addL < 150) {
-						tempErrorVWLeft = addL + addR; // one positiv and one
-														// negativ
-						if (tempErrorVWLeft == 0) {
-							integral = 0;
-						} // Do an antiwindupcontrol
+						tempErrorVWLeft = addL + addR; // one positiv and one 	// negativ
+					if (tempErrorVWLeft == 0) { integral = 0;} // Do an antiwindupcontrol
 						integral = integral + tempErrorVWLeft;
 						difference = tempErrorVWLeft - lastErrorVWLeft;
 						double ks = (Kp * tempErrorVWLeft) + (Ki_line * integral) + (Kd_line * difference);
-
 						leftMotor.setPower((int) (speedL - ks));
 						rightMotor.setPower((int) (-speedL - ks));
-					} else {
-						leftMotor.setPower(0);
-						rightMotor.setPower(0);
-
-					}
-
 				}
+
+				
 				monitor.writeControlComment("TurnR" + addR + ":" + fixAddR + ": " + tempErrorVWLeft);
 				monitor.writeControlComment("TurnL" + addL + ":" + fixAddL + ": " + tempErrorVWLeft);
 
@@ -549,33 +559,35 @@ public class ControlRST implements IControl {
 				wheelDistance = 10;
 			}
 		}
-		double velocityL = ((radiusM - (wheelDistance / 2)) * (velocity / radiusM)) - 1;
-		double velocityR = (radiusM + (wheelDistance / 2)) * (velocity / radiusM);
-		if (velocity != 0) {
-			if (mutexStraight == 0) {
-				resetAdd();
-				mutexTurn = 0;
-				mutexStraight++;
-			}
 
-			double KpStraight = 0.9;
-			double KiStraight = 0.17;
-			double KdStraight = 0;
-			tempErrorVWLeft = addL - addR;
-			if (tempErrorVWLeft == 0) {
-				integral = 0;
-			} // Do an antiwindupcontrol
-			integral = integral + tempErrorVWLeft;
-			difference = tempErrorVWLeft - lastErrorVWLeft;
-			double ks = (KpStraight * tempErrorVWLeft) + (KiStraight * integral) + (KdStraight * difference);
-			int left = (int) (35 - ks);
-			int right = (int) (35 + ks);
-			leftMotor.setPower(left);
-			rightMotor.setPower(right);
-			monitor.writeControlComment("links" + ks + ":" + left + ":" + right);
-
-			lastErrorVWLeft = tempErrorVWLeft;
+	double velocityL = ((radiusM - (wheelDistance / 2)) * (velocity / radiusM)) - 1;
+	double velocityR = (radiusM + (wheelDistance / 2)) * (velocity / radiusM);if(velocity!=0)
+	{
+		
+		if (mutexStraight == 0) {
+			resetAdd();
+			mutexTurn = 0;
+			mutexStraight++;
 		}
+
+		double KpStraight = 0.9;
+		double KiStraight = 0.17;
+		double KdStraight = 0;
+		tempErrorVWLeft = addL - addR;
+		if (tempErrorVWLeft == 0) {
+			integral = 0;
+		} // Do an antiwindupcontrol
+		integral = integral + tempErrorVWLeft;
+		difference = tempErrorVWLeft - lastErrorVWLeft;
+		double ks = (KpStraight * tempErrorVWLeft) + (KiStraight * integral) + (KdStraight * difference);
+		int left = (int) (35 - ks);
+		int right = (int) (35 + ks);
+		leftMotor.setPower(left);
+		rightMotor.setPower(right);
+		monitor.writeControlComment("links" + ks + ":" + left + ":" + right);
+
+		lastErrorVWLeft = tempErrorVWLeft;
+	}
 	}
 
 	private void resetAdd() {
