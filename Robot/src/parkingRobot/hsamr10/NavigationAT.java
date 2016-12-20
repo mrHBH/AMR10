@@ -171,26 +171,23 @@ public class NavigationAT implements INavigation{
 		this.encoderRight = perception.getNavigationRightEncoder();
 		this.mouseodo	  = perception.getNavigationOdo();
 		
-		
+		/*
 		monitor.addNavigationVar("xCoordinate");
 		monitor.addNavigationVar("yCoordinate");
+		/*
 		monitor.addNavigationVar("angle");
-		monitor.addNavigationVar("angle2");
-		monitor.addNavigationVar("map");
+		monitor.addNavigationVar("uOdo");
+		monitor.addNavigationVar("vOdo");
+		monitor.addNavigationVar("time");
+		
 		monitor.addNavigationVar("frontSide");
 		monitor.addNavigationVar("backSide");
 		monitor.addNavigationVar("front");
 		monitor.addNavigationVar("back");
 		
 		
-		/*
-		monitor.addNavigationVar("xCoordinate");
-		monitor.addNavigationVar("yCoordinate");
-		monitor.addNavigationVar("angle");
-		monitor.addNavigationVar("leftEncoder");
-		monitor.addNavigationVar("rightEncoder");
-		monitor.addNavigationVar("leftTime");
-		monitor.addNavigationVar("rightTime");	
+		monitor.addNavigationVar("leftSensor");
+		monitor.addNavigationVar("rightSensor");
 		*/
 		navThread.setPriority(Thread.MAX_PRIORITY - 1);
 		navThread.setDaemon(true); // background thread that is not need to terminate in order for the user program to terminate
@@ -245,17 +242,25 @@ public class NavigationAT implements INavigation{
 		
 
 		if (this.map != null) {
+		
+			/*
+			monitor.writeNavigationVar("xCoordinate", ""+ (this.pose.getX()*100));
+			monitor.writeNavigationVar("yCoordinate", ""+ (this.pose.getY()*100));
+			monitor.writeNavigationVar("angle", ""+ (this.pose.getHeading()*180/Math.PI));
+			monitor.writeNavigationVar("uOdo", ""+ (  this.mouseOdoMeasurement.getUSum()  ));
+			monitor.writeNavigationVar("vOdo", ""+ (this.mouseOdoMeasurement.getVSum()));
+			monitor.writeNavigationVar("time", ""+ (  this.mouseOdoMeasurement.getDeltaT()  ));
 			
-			monitor.writeNavigationVar("xCoordinate", ""+( this.pose.getX()*100 ) );
-			monitor.writeNavigationVar("yCoordinate", ""+( this.pose.getY()*100 ) );
-			monitor.writeNavigationVar("angle", ""+( this.pose.getHeading() *180/Math.PI ) );
-			monitor.writeNavigationVar("angle2", ""+this.angle_by_DistanceSensors * 180/Math.PI);
-			monitor.writeNavigationVar("map", ""+ this.currentLine.id);
 			monitor.writeNavigationVar("frontSide", ""+this.frontSideSensorDistance);
 			monitor.writeNavigationVar("backSide", ""+this.backSideSensorDistance);
 			monitor.writeNavigationVar("front", ""+this.frontSensorDistance);
 			monitor.writeNavigationVar("back", ""+this.backSensorDistance);
-			/*
+			
+			monitor.writeNavigationVar("xCoordinate", ""+ (this.pose.getX()*100));
+			monitor.writeNavigationVar("yCoordinate", ""+ (this.pose.getY()*100));
+			monitor.writeNavigationVar("leftSensor", ""+ this.lineSensorLeft);
+			monitor.writeNavigationVar("rightSensor", ""+this.lineSensorRight);
+			*/
 			LCD.clear();
 			
 			LCD.drawString("X (in cm): " + (this.getPose().getX()*100), 0, 0);
@@ -319,6 +324,11 @@ public class NavigationAT implements INavigation{
 		this.lineSensorRight		= perception.getRightLineSensor();
 		this.lineSensorLeft  		= perception.getLeftLineSensor();
 		
+		// Achtung, ggf. aendern sich diese Methoden wieder.
+		
+		this.lineSensorRight		= perception.getRightRough();
+		this.lineSensorLeft			= perception.getLeftRough();
+		
 		this.angleMeasurementLeft  	= this.encoderLeft.getEncoderMeasurement();
 		this.angleMeasurementRight 	= this.encoderRight.getEncoderMeasurement();
 
@@ -369,9 +379,9 @@ public class NavigationAT implements INavigation{
 			
 			//if ( Math.abs( this.angleMeasurementLeft.getAngleSum() - this.angleMeasurementRight.getAngleSum() )/ ((double)this.angleMeasurementLeft.getDeltaT()/1000) > 50 ||
 				//	this.pose.getHeading() % (Math.PI/4) > Math.PI/6 ) {
-			if ( this.pose.getX()==0 && this.pose.getY()==0 ) {
+			/*if ( this.pose.getX()==0 && this.pose.getY()==0 ) {
 				this.pose.setHeading( (float)this.angle_by_DistanceSensors );
-			}
+			}*/
 		}
 				
 		
@@ -416,25 +426,30 @@ public class NavigationAT implements INavigation{
 			yResult 		= Math.sin(w * deltaT) * (this.pose.getX()-ICCx) + Math.cos(w * deltaT) * (this.pose.getY() - ICCy) + ICCy;
 			angleResult 	= this.pose.getHeading() + w * deltaT;
 		}
-		angleResult = ( angleResult + 2*Math.PI) % (2*Math.PI);
+		angleResult = ( angleResult + 2*Math.PI) % (2*Math.PI); // nur Werte zwischen 0... 360°
 		
 		Pose pose = new Pose();
 		pose.setLocation((float)xResult, (float)yResult);
-		pose.setHeading((float)angleResult);
-		/*
-		monitor.writeNavigationVar("xCoordinate", ""+( xResult ) );
-		monitor.writeNavigationVar("yCoordinate", ""+( yResult ) );
-		monitor.writeNavigationVar("angle", ""+( angleResult *180/Math.PI ) );
-		monitor.writeNavigationVar("leftEncoder", ""+leftAngleSpeed);
-		monitor.writeNavigationVar("rightEncoder", ""+rightAngleSpeed);
-		monitor.writeNavigationVar("leftTime", ""+deltaT);
-		monitor.writeNavigationVar("rightTime", ""+ ((double)this.angleMeasurementRight.getDeltaT())/1000);
-		*/
+		pose.setHeading( (float)angleResult);
+
 		return pose;
 	}
 	
 	private Pose calculateLocationMouseSensor() {
 		Pose pose = new Pose();
+		double uShift = 0.001 * this.mouseOdoMeasurement.getUSum();
+		double vShift = 0.001 * this.mouseOdoMeasurement.getVSum();
+		double deltaT = 0.001 * this.mouseOdoMeasurement.getDeltaT();
+		
+		double angle  = this.pose.getHeading();
+		
+		double x	 = this.pose.getX() + uShift * Math.cos( angle ) - vShift * Math.sin( angle );
+		double y	 = this.pose.getY() + uShift * Math.sin( angle ) + vShift * Math.cos( angle );
+		angle = this.pose.getHeading() + Math.atan2(vShift, uShift);
+		
+		pose.setLocation((float)x, (float)y);
+		pose.setHeading((float)angle);
+		
 		return pose;
 	}
 
