@@ -22,7 +22,7 @@ public class Monitor implements IMonitor {
 	
 	
 	// -------------------- Start: USER INPUTS --------------------
-	static final monitorMode MODE = monitorMode.OFFLINE_LOGGING; // ONLY USE "LOGGING_OFF" and "ONLINE_LOGGING"
+	static final monitorMode MODE = monitorMode.LOGGING_OFF; // ONLY USE "LOGGING_OFF" and "ONLINE_LOGGING"
 	// --------------------- End: USER INPUTS ---------------------
 	
 	
