@@ -480,15 +480,15 @@ public class ControlRST implements IControl {
 		if (Math.abs(differenceErrorL) == 0) {
 			integralLine = 0;
 		}
-		if (Math.abs(differenceErrorL) > 15) {
-			if (differenceErrorL > 15) {
+		if (Math.abs(differenceErrorL) > 10) {
+			if (differenceErrorL > 10) {
 				// drive(0, -30);
 				leftMotor.setPower((int) (37));
 				rightMotor.setPower(0);
 				differenceErrorL = perception.getLeftRough() - perception.getRightRough();
 
 			}
-			if (differenceErrorL < -15) {
+			if (differenceErrorL < -10) {
 				leftMotor.setPower(0);
 				rightMotor.setPower((int) (37));
 				differenceErrorL = perception.getLeftRough() - perception.getRightRough();
