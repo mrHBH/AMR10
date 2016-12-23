@@ -20,6 +20,8 @@ import java.util.List;
  * @author Tung Le
  *
  */
+
+
 public class StraightLine {
 	private Direction direction;
 	private StraightLine followingLine;
@@ -33,12 +35,14 @@ public class StraightLine {
 	private List<Double> parkingFrontPoints;
 	private List<Double> parkingBackPoints;
 	private List<Integer> parkingID;
-	static private final double OFFSET_PARKSLOT_BACKSIDE  = 0.100;
-	static private final double OFFSET_PARKSLOT_FRONTSIDE = 0.075;
+	
+
 	/**
 	 * used for monitoring purposes
 	 */
 	public IMonitor monitor = null;
+
+	
 	/**
 	 * defines the direction a robot can follow a line
 	 * 
@@ -74,20 +78,18 @@ public class StraightLine {
 		this.parkingFrontPoints = new LinkedList<Double>();
 		this.parkingBackPoints  = new LinkedList<Double>();
 		this.parkingID		 	= new LinkedList<Integer>();
-		//this.parkingSlots = new LinkedList<ParkingSlot>();
+		
+		
 	}
 	/**
-	 * sets the following line. Method to be called once.
+	 * sets the following line. Method to be called once, unless it's a dynamic map.
 	 * @param line  line given as an four-dimensional array with starting coordinates x1, y1 and target coordinates x2, y2
 	 */
 	public void setFollowingLine(StraightLine line) {
 		this.followingLine = line;
 	}
-	/*
-	public StraightLine getFollowingLine() {
-		return this.followingLine;
-	}
-	*/
+
+
 	/**
 	 * navigation module spots a parking slot during it's scout mode. method evaluates it's parameters, and existence in a current database
 	 * 
@@ -96,7 +98,7 @@ public class StraightLine {
 	 * @param backBoundaryPosition  position of parking slot back boundary, robot passes it first then the front boundary
 	 * @return  true, if the parking slot added as a new one in the database (and therefore the ID counter has to be incremented)
 	 */
-	public boolean newParkingSlotSpotted(int ID, double frontBoundaryPosition, double backBoundaryPosition) {
+	public boolean newParkingSlotSpotted(int ID, double frontBoundaryPosition, double backBoundaryPosition, double offset) {
 		if ( this.id==5 ) { return false; } // there is no parking slot, robot is turning to a street
 		
 		boolean slotNotInDatabase = true;
@@ -108,12 +110,12 @@ public class StraightLine {
 		}
 		
 		if (this.startCoordinate < this.endCoordinate) {
-			 backBoundaryPosition  -= OFFSET_PARKSLOT_BACKSIDE;
-			 frontBoundaryPosition += OFFSET_PARKSLOT_FRONTSIDE;
+			 backBoundaryPosition  += offset;
+			 frontBoundaryPosition += offset;
 		}
 		else {
-			 backBoundaryPosition  += OFFSET_PARKSLOT_BACKSIDE;
-			 frontBoundaryPosition -= OFFSET_PARKSLOT_FRONTSIDE;
+			 backBoundaryPosition  -= offset;
+			 frontBoundaryPosition -= offset;
 		}
 		
 		
@@ -145,6 +147,7 @@ public class StraightLine {
 				}
 			}
 		}
+		
 		String comment = new String();
 		if (slotNotInDatabase) {
 			this.parkingBackPoints.add(backBoundaryPosition);
@@ -160,19 +163,35 @@ public class StraightLine {
 			
 			comment = "old Slot: ";
 		}
-		this.monitor.writeNavigationComment(comment + backBoundaryPosition + " " + frontBoundaryPosition + " " + this.id);
+		//this.monitor.writeNavigationComment(comment + backBoundaryPosition + " " + frontBoundaryPosition + " " + this.id);
 
 		return slotNotInDatabase;
 	}
 	/**
+	 * 
 	 * further refining of the x, y, coordinates and the robot's angle
 	 * 
-	 * @param pose  current robot pose
-	 * @param perception  module, to use advanced localisation measurements
+	 * @param pose current robot pose
+	 * @param lineSensorRight
+	 * @param lineSensorLeft
+	 * @param frontSensorDistance
+	 * @param frontSideSensorDistance
+	 * @param backSensorDistance
+	 * @param backSideSensorDistance
 	 */
-	public void poseCorrection(Pose pose, IPerception perception) {
-		 
+	public void poseCorrection(
+			Pose pose,
+			int lineSensorRight,
+			int lineSensorLeft,
+			double frontSensorDistance,
+			double frontSideSensorDistance,
+			double backSensorDistance,
+			double backSideSensorDistance
+			) {
+		
 	}
+	
+	
 	/**
 	 * starting coordinate of this line
 	 * 
@@ -234,12 +253,8 @@ public class StraightLine {
 	 * @return  this line or the following line in case the robot is taking a turn
 	 */
 	public StraightLine update( Pose pose ) {
-		double angleDifference = Math.min(
-				Math.abs( this.getAngle() - pose.getHeading() ),
-				Math.abs( this.getAngle() - pose.getHeading() + 2*Math.PI ) ) ;
-		double nextAngleDifference = Math.min(
-				Math.abs( this.followingLine.getAngle() - pose.getHeading() ),
-				Math.abs( this.followingLine.getAngle() - pose.getHeading() + 2*Math.PI ) ) ;
+		double angleDifference		= absAngle( this.getAngle(), pose.getHeading() );
+		double nextAngleDifference	= absAngle( this.followingLine.getAngle(), pose.getHeading() );
 		
 		if ( angleDifference > nextAngleDifference ) {
 			this.conditionAngle = true;
@@ -275,6 +290,8 @@ public class StraightLine {
 		if ( this.conditionAngle && this.conditionDistance ) {
 		//if (this.conditionAngle) {
 			// Reset one axis (currently hard, maybe implement with filter)
+			
+			/*
 			switch( this.followingLine.direction ) {
 			case EAST:
 				x = pose.getX();
@@ -293,10 +310,12 @@ public class StraightLine {
 				y = pose.getY();
 				break;
 			}
-			pose.setLocation( (float)x, (float)y);			
-			
+			//pose.setLocation( (float)x, (float)y);			
+			*/
 			this.conditionAngle = false;
 			this.conditionDistance = false;
+			
+			
 			return this.followingLine;
 		}
 		else {
@@ -305,7 +324,7 @@ public class StraightLine {
 	}
 	/**
 	 * 
-	 * @return  returns a list of parking slot this line is containing
+	 * @return  returns a list of parking slots this line is containing
 	 */
 	public List<ParkingSlot> getParkingSlots() {		
 		List<ParkingSlot> parkingSlots = new LinkedList<ParkingSlot>();
@@ -350,6 +369,10 @@ public class StraightLine {
 					));
 		}
 		return parkingSlots;
+	}
+	
+	public double absAngle (double angle1, double angle2) {
+		return Math.abs( Math.min ( Math.abs( angle1-angle2 ), 2*Math.PI-Math.abs( angle1-angle2 ) ) ) % (2*Math.PI);
 	}
 	
 }
