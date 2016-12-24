@@ -229,6 +229,7 @@ public class ControlRST implements IControl {
 		if (back == true) {
 			this.offset = -30;
 		}
+		else this.offset = 30;
 	}
 	
 	/**
@@ -591,7 +592,7 @@ public class ControlRST implements IControl {
 		double Kp = 0.2;
 		double Ki_line = 0.1;
 		double Kd_line = 0;
-		// addL < 150 dreht 90 ° -> 600 dreht 360
+		// addL < 150 dreht 90 Â° -> 600 dreht 360
 		int wheelDistance = 0; // nochmal unbedingt nachmessen
 		double radiusM;
 		double velTurn = (((7 / 5D) * (velocity * 100D)) + 20D);
@@ -678,7 +679,7 @@ public class ControlRST implements IControl {
 			} // Do an antiwindupcontrol
 			if (tempErrorVWLeft > 8) {
 				tempErrorVWLeft = 8;
-			} // Fehlerbegrenzung für Peak
+			} // Fehlerbegrenzung fÃ¼r Peak
 			integral = integral + tempErrorVWLeft;
 			difference = tempErrorVWLeft - lastErrorVWLeft;
 			double ks = (KpStraight * tempErrorVWLeft) + (KiStraight * integral) + (KdStraight * difference);
