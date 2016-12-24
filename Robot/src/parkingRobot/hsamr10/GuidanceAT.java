@@ -45,16 +45,48 @@ public class GuidanceAT {
 		/**
 		 * indicates that robot is following the line and maybe detecting parking slots
 		 */
-		DRIVING,
+		SCOUT,
 		/**
-		 * indicates that robot is performing an parking maneuver
+		 * indicates that robot is idling
 		 */
 		INACTIVE,
 		/**
-		 * indicates that shutdown of main program has initiated
+		 * indicates that robot is searching for new parking places to park as soon as possible
+		 */
+		PARKNOW,
+		/**
+		 * indicates that robot is following the line to reach the selected slot and will initiate the parking operation there.
+		 */
+		PARKTHIS,
+		/**
+		 * indicates the Robot is performing the leaving maneuver and  will go to scout mode upon termination
+		 */
+		AUSPARKEN,
+		/**
+		 * indicates that the program is terminating the Bluetooth connection and shutting down the robot. 
 		 */
 		EXIT
+		
 	}
+	public enum CurrentSubState {
+		/**
+		 * The Robot has detected a collision and is trying to avoid it 
+		 */
+		AVOIDINGCOLLISION,
+		/**
+		 * The Robot has lost the line and is performing a special maneuver to find it again.
+         */
+		FINDINGTRACK,
+		/**
+		 * The Robot is performing the measurement maneuver.
+		 */
+		MEASURING,
+		/**
+		 * The robot can perform the required task without needing to go to a Substate.
+		 */
+		NOSUBSTATE
+	}
+	
 	
 	
 	/**
@@ -65,7 +97,9 @@ public class GuidanceAT {
 	 * state in which the main finite state machine was running before entering the actual state
 	 */
 	protected static CurrentStatus lastStatus		= CurrentStatus.INACTIVE;
-	
+	protected static CurrentSubState currentSubState = CurrentSubState.NOSUBSTATE;
+	protected static CurrentSubState lastSubState = CurrentSubState.NOSUBSTATE;
+
 	
 	/**
 	 * one line of the map of the robot course. The course consists of a closed chain of straight lines.
@@ -98,8 +132,8 @@ public class GuidanceAT {
 	public static void main(String[] args) throws Exception {		
         currentStatus = CurrentStatus.INACTIVE;
         lastStatus    = CurrentStatus.EXIT;
-		
-		// Generate objects
+        lastSubState =CurrentSubState.NOSUBSTATE;		 	
+        currentSubState=CurrentSubState.NOSUBSTATE;
 		/** Output Channel A is broken, so we have to use B and C instead
 		 * For better results we have to cross the outputs**/
 		NXTMotor leftMotor  = new NXTMotor(MotorPort.B);
@@ -116,19 +150,38 @@ public class GuidanceAT {
 		
 		navigation.setMap(map);
 		monitor.startLogging();
+		/**Collision threshold is a variable that sets a threshold distance. If the front IR sensors detects a value lower than the 
+		 * threshold , a collision is then detected.
+		 * 
+		 */
+		double CollisionThreshod=0;
+		/**Detecting is boolean , that when true it activates the detection of potential parking slots .
+		 * 
+		 */
+		double currentDistance=0;
+		boolean CollisionDetected=false;
+		boolean LostTrack=false;
+		boolean FoundPotentialSlot=false;
+		
 				
 		while(true) {
 			showData(navigation, perception);
+			//The RObot can only go to one of the main states if it is not currently inside any substate
+			if ( ( currentSubState==CurrentSubState.NOSUBSTATE) || (currentStatus!=CurrentStatus.EXIT) /*|| (currentStatus!=CurrentStatus.INACTIVE)*/)
 			
+			{
+				
         	switch ( currentStatus )
         	{
-				case DRIVING:
+				case SCOUT:
 					// MONITOR (example)
-//					monitor.writeGuidanceComment("Guidance_Driving");
+				//	monitor.writeGuidanceComment(Double.toString(perception.getFrontSensorDistance()));
 					
 					//Into action
-					if ( lastStatus != CurrentStatus.DRIVING ){
+					if ( lastStatus != CurrentStatus.SCOUT || lastSubState !=CurrentSubState.NOSUBSTATE ){
 						control.setCtrlMode(ControlMode.LINE_CTRL);
+                        CollisionThreshod=7;
+						navigation.setDetectionState(true);
 					}
 					
 					//While action				
@@ -138,8 +191,9 @@ public class GuidanceAT {
 					
 					//State transition check
 					lastStatus = currentStatus;
+					
 					if ( hmi.getMode() == parkingRobot.INxtHmi.Mode.PAUSE ){
-						currentStatus = CurrentStatus.INACTIVE;
+						currentStatus = CurrentStatus.INACTIVE;	
 					}else if ( Button.ENTER.isDown() ){
 						currentStatus = CurrentStatus.INACTIVE;
 						while(Button.ENTER.isDown()){Thread.sleep(1);} //wait for button release
@@ -147,11 +201,24 @@ public class GuidanceAT {
 						currentStatus = CurrentStatus.EXIT;
 						while(Button.ESCAPE.isDown()){Thread.sleep(1);} //wait for button release
 					}else if (hmi.getMode() == parkingRobot.INxtHmi.Mode.DISCONNECT){
-						currentStatus = CurrentStatus.EXIT;
+						currentStatus = CurrentStatus.EXIT;}
+					
+					//if collisiondetected is set to true in the main loop , the robot will go to avoiding collision Substate 
+				    if (CollisionDetected){
+						
+				
+						currentSubState=CurrentSubState.AVOIDINGCOLLISION; 
+					}
+				    
+				    // Collision detected  and going to the avoiding collision substate
+					if (LostTrack) { 
+						currentSubState=CurrentSubState.FINDINGTRACK; } // Lost The line and the robot is trying to find it 
+					if ( FoundPotentialSlot ){
+						currentSubState=CurrentSubState.MEASURING;
 					}
 					
 					//Leave action
-					if ( currentStatus != CurrentStatus.DRIVING ){
+					if ( currentStatus != CurrentStatus.SCOUT ){
 						//nothing to do here
 					}
 					break;				
@@ -169,9 +236,9 @@ public class GuidanceAT {
 					//State transition check
 					lastStatus = currentStatus;
 					if ( hmi.getMode() == parkingRobot.INxtHmi.Mode.SCOUT ){
-						currentStatus = CurrentStatus.DRIVING;						
+						currentStatus = CurrentStatus.SCOUT;						
 					}else if ( Button.ENTER.isDown() ){
-						currentStatus = CurrentStatus.DRIVING;
+						currentStatus = CurrentStatus.SCOUT;
 						while(Button.ENTER.isDown()){Thread.sleep(1);} //wait for button release
 					}else if ( Button.ESCAPE.isDown() ){
 						currentStatus = CurrentStatus.EXIT;
@@ -193,11 +260,77 @@ public class GuidanceAT {
 					monitor.stopLogging();
 					System.exit(0);
 					break;
+				case PARKTHIS:
+					//CHECK CURRENT POSITION ,LINE and POSE 
+					//IF not desired then GO to scout MODE using the 'executing' BOOLEAN until the required POSITON IS REACHED
+					//IF THE required position is reached then generate the path and send it to control 
+					//set threshold to 5 
+					//if parking is successful go to INACTIVE state
+					
 			default:
 				break;
-        	}
+        	
+			}
+        	
+        }
+			  switch ( currentSubState )
+			  
+        	{ case AVOIDINGCOLLISION:
         		
-        	Thread.sleep(10);        	
+        		/** Avoiding Collision 
+        		 * the Robot stops when an obstacle within "CollisionThreshold" is detected . 
+        		 * if the obstacle approaches beyond the distance 2 from the front , The robot will step backwards
+        		 * if the obstacle is static and still nearer than the  "collision threshold" the robots stops and waits 
+        		 * if the collision is cleared , the robot leaves "avoiding Collision" to "NOSUBSTATE" 
+          		 */
+        		
+
+				// Into action
+        		
+        		if (lastSubState!=currentSubState){
+        			
+    				control.setCtrlMode(ControlMode.INACTIVE);
+    				lastSubState=currentSubState;
+        			}
+        		
+        		//Transition Check 
+        		
+        			
+        		
+				currentDistance=perception.getFrontSensorDistance();      // Updates the front sensor value ;
+            	if (currentDistance>=2 && currentDistance<CollisionThreshod){
+             		control.setCtrlMode(ControlMode.INACTIVE);
+             		
+             	}
+            	
+            	
+             	else if (currentDistance<2) {  // The Collision is approaching : step backwards
+             		
+          		 control.setBackwords(true); // this enables the backward line follower
+			     control.setCtrlMode(ControlMode.LINE_CTRL);
+             	
+             		
+             	}
+            	 
+             	else {            	// The Collision is cleared : exit the substate 
+
+             		CollisionDetected=false;
+           		    control.setBackwords(false); // this disables the backward line follower 
+				    control.setCtrlMode(ControlMode.LINE_CTRL);
+                    currentSubState=CurrentSubState.NOSUBSTATE;}
+             
+				break;
+				
+				case NOSUBSTATE : 
+					lastSubState=currentSubState;
+					break;
+					
+				default:
+	        		break;
+        		}
+			
+		    if (perception.getFrontSensorDistance()<CollisionThreshod){CollisionDetected=true;}
+			     	Thread.sleep(10);        	
 		}
 	}
 	
@@ -218,8 +351,14 @@ public class GuidanceAT {
 	 */
 	protected static void showData(INavigation navigation, IPerception perception){
 		LCD.clear();	
-		perception.showSensorData();
+		//perception.showSensorData();
+		LCD.drawString("Front: "+perception.getFrontSensorDistance(), 0, 4);	
+		LCD.drawString("STATE: "+currentStatus, 0, 0);
+		LCD.drawString("SUBSTATE: "+currentSubState, 0, 2);
+		
+
 //		LCD.drawString("X (in cm): " + (navigation.getPose().getX()*100), 0, 0);
+
 //		LCD.drawString("Y (in cm): " + (navigation.getPose().getY()*100), 0, 1);
 //		LCD.drawString("Phi (grd): " + (navigation.getPose().getHeading()/Math.PI*180), 0, 2);
 //		
