@@ -319,24 +319,37 @@ public class NavigationAT implements INavigation{
 			monitor.writeNavigationVar("uOdo", ""+ (  this.mouseOdoMeasurement.getUSum()  ));
 			monitor.writeNavigationVar("vOdo", ""+ (this.mouseOdoMeasurement.getVSum()));
 			monitor.writeNavigationVar("time", ""+ (  this.mouseOdoMeasurement.getDeltaT()  ));
-			*/
+			
 			LCD.clear();
 			
-			LCD.drawString("X (in cm): " + (this.getPose().getX()*100), 0, 0);
+			/*LCD.drawString("X (in cm): " + (this.getPose().getX()*100), 0, 0);
 			LCD.drawString("Y (in cm): " + (this.getPose().getY()*100), 0, 1);
 			LCD.drawString("Phi (grd): " + (this.getPose().getHeading()/Math.PI*180), 0, 2);
-			LCD.drawString("Line " + this.currentLine.id, 0, 3);
+			ParkingSlot[] parkingSlots = this.getParkingSlots();			
 
+			//LCD.drawString("Line " + this.currentLine.id, 0, 0);
+			//LCD.drawString("Parking Slots: " + parkingSlots.length, 0, 1);
+			LCD.drawString("FrontSide " + this.frontSideSensorDistance, 0, 0);
+			for (int index=0; index<parkingSlots.length; index++) {
+				LCD.drawString("" + (int) (  parkingSlots[index].getBackBoundaryPosition().getX()*100  )
+						+ "  " +    (int) (  parkingSlots[index].getBackBoundaryPosition().getY()*100  ),
+						0, index*2+1);
+				LCD.drawString("" + (int) (  parkingSlots[index].getFrontBoundaryPosition().getX()*100  )
+						+ "  " +    (int) (  parkingSlots[index].getFrontBoundaryPosition().getY()*100  ),
+						0, index*2+2);
+			}
+			;
+			
 			//LCD.drawString("Total Slots: " + this.getParkingSlots().length, 0, 7);
 			
 			
 			
-			
+			/*
 			LCD.drawString("Parking Slots: " + this.currentLine.getParkingSlots().size(), 0, 4);
 			LCD.drawString("FrontSide " + this.frontSideSensorDistance, 0, 5);
 			LCD.drawString("BackSide " + this.backSideSensorDistance, 0, 6);
 			LCD.drawString("Total Slots: " + this.getParkingSlots().length, 0, 7);
-			
+			*/
 			//LCD.drawString(""+this.currentLine.getDirection(), 0, 7);
 			//LCD.drawString("Line " + this.currentLine.id, 0, 7);
 			/*LCD.drawString("Angle " + this.currentLine.conditionAngle, 0, 1);
@@ -378,6 +391,10 @@ public class NavigationAT implements INavigation{
 	
 	public int getLineID() {
 		return this.currentLine.id;
+	}
+	
+	public boolean detectingParkingSlot() {
+		return this.detectingSlotBackSide || this.detectingSlotFrontSide;
 	}
 	
 	
