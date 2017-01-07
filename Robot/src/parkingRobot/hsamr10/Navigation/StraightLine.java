@@ -225,7 +225,7 @@ public class StraightLine {
 	}
 	/**
 	 * 
-	 * @return  returns this line's angle relative to the positive x-axis according to its angle
+	 * @return  returns this line's angle relative to the positive x-axis according to its direction
 	 */
 	public double getAngle() {
 		double angle;
@@ -336,21 +336,21 @@ public class StraightLine {
 			
 			if 		( this.direction==Direction.NORTH || this.direction==Direction.SOUTH) {
 				frontBoundaryPosition = new Point(
-						(float)this.constCoordinate,
-						(float)this.parkingFrontPoints.get(i).doubleValue());
+						(float)this.constCoordinate * 100,
+						(float)this.parkingFrontPoints.get(i).doubleValue() * 100);
 				
 				backBoundaryPosition = new Point(
-						(float)this.constCoordinate,
-						(float)this.parkingBackPoints.get(i).doubleValue());
+						(float)this.constCoordinate * 100,
+						(float)this.parkingBackPoints.get(i).doubleValue() * 100);
 			}
 			else if ( this.direction==Direction.WEST || this.direction==Direction.EAST) {
 				frontBoundaryPosition = new Point(
-						(float)this.parkingFrontPoints.get(i).doubleValue(),
-						(float)this.constCoordinate);
+						(float)this.parkingFrontPoints.get(i).doubleValue() * 100,
+						(float)this.constCoordinate * 100) ;
 				
 				backBoundaryPosition = new Point(
-						(float)this.parkingBackPoints.get(i).doubleValue(),
-						(float)this.constCoordinate);
+						(float)this.parkingBackPoints.get(i).doubleValue() * 100,
+						(float)this.constCoordinate * 100);
 			}
 			
 			if ( Math.abs(this.parkingFrontPoints.get(i)-this.parkingBackPoints.get(i)) > 0.45 ) {
