@@ -126,7 +126,25 @@ public class ControlRST implements IControl {
 	boolean finalDestination = false;
 	boolean finalLocation = false;
 	int mutexSetPose = 0;
-
+	// ##### christmasDrive #####
+		double pidL = 0;
+		double pidR = 0;
+		double integralL = 0;
+		double integralR = 0;
+		double differenceL = 0;
+		double differenceR = 0;
+		double lastErrorR;
+		double lastErrorLinks;
+		double powerL = 0;
+		double powerR = 0;
+		double tempSpeedLeft = 0;
+		double tempSpeedRight = 0;
+		// ##### ParkIN######
+		double x = -0.1;
+		double w = 0;
+		double velo = 0;
+		double x_back = 0.1;
+		int mutex_out =0;
 	/**
 	 * provides the reference transfer so that the class knows its corresponding
 	 * navigation object (to obtain the current position of the car from) and
@@ -721,4 +739,156 @@ public class ControlRST implements IControl {
 		addR = 0;
 	}
 
+	private void christmasDrive(double v, double w) {
+		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
+		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
+		double kp = 0.75;//5;
+		double ki = 0.01;//0.2;
+		double kd = 0.2;//2;
+		double errorL =0;
+		admL.setDeltaT(200);
+		admR.setDeltaT(200);
+		// ###### 1. Schritt Kinematikberechnung ##### ///
+		w = Math.toRadians(w);
+		double velocityL = v - (10 / 2.8D) * w;
+		double velocityR = v + (10 / 2.8D) * w;
+
+		// ####### 2. Schritt Powerwerte berechnen #####//
+		monitor.writeControlComment("Speed" + velocityL + velocityR);
+		if (velocityL > 0) {
+			powerL = (((30 / 7.2D) * (velocityL)) + (29 / 3D));
+		} else {
+			powerL = (((30 / 6.8D) * (velocityL)) - 8.29D);
+		}
+		if (velocityR > 0) {
+			powerR = (((30 / 7.2D) * (velocityR)) + (29 / 3D));
+		} else {
+			powerR = (((30 / 6.8D) * (velocityR)) - 8.29D);
+
+		}
+		// ###### 3. Schritt PID Regelung dazuaddieren ####//
+		if (admL.getDeltaT() != 0 && admR.getDeltaT() != 0) {
+			tempSpeedLeft = (admL.getAngleSum()/360)*17.59*5;//2*Math.PI*2.8D;// admL.getDeltaT()*5;
+			tempSpeedRight = ((admR.getAngleSum()) / 360) *17.59*5; //2 * Math.PI * 2.8D;/// admR.getDeltaT()*5;
+			errorL = (velocityL) - tempSpeedLeft; // Because deltaT=200ms
+			double errorR =(velocityR) - tempSpeedRight;
+			if (Math.abs(errorL) < 5) {
+				integralL = 0;
+			} else {
+				integralL = integralL + errorL;
+			}
+			if (Math.abs(errorR) < 5) {
+				integralR = 0;
+			} else {
+				integralR = integralR + errorR;
+			}
+			differenceL = errorL - lastErrorLinks;
+			differenceR = errorR - lastErrorR;
+			pidL = kp * errorL + ki * integralL + kd * differenceL;
+			pidR = kp * errorR + ki * integralR + kd * differenceL;
+			lastErrorLinks = errorL;
+			lastErrorR = errorR;
+		}
+		// ##### fahren ####///
+		leftMotor.forward();
+		rightMotor.forward();
+		leftMotor.setPower((int) (powerL) + (int) (pidL));
+		rightMotor.setPower((int) powerR + (int)pidR );/*
+		monitor.writeControlComment("ChristmasDrive" + ": " + (int) powerL + ":" + (int)powerR + ":" + (int)pidL + ":" + (int)pidR + ":"
+				+ velocityL + ":" + velocityR + ":" + tempSpeedLeft + ":" + tempSpeedRight
+				+ ":" + errorL ); */
+	}
+
+	private void ParkIn() {
+		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
+		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
+		admL.setDeltaT(100);
+		admR.setDeltaT(100);
+		if (mutex_out == 0) {
+			time = System.currentTimeMillis();
+			mutex_out = 1;
+		}
+		long diff = System.currentTimeMillis() - time;
+		if (x > 0.5) {
+			stop();
+			return;
+		}
+		if (diff % 1000 < 109) {
+			x = x +0.1;
+
+			double a = 5.486;
+			double b =  -3.70305;
+			double v = 1;
+			velo = Math.sqrt(v * v + Math.pow((3 * a * v * v * v * x * x + 2 * b * v * v * x), 2));
+			w = 2 * (3 * a * x + b) / (Math.pow((3 * a * x * x + 2 * b * x), 2) + 1);
+			christmasDrive((velo * 3), (w*3));
+
+		}
+		// if(currentPosition.getHeading())
+		monitor.writeControlComment("Time " + diff + ":" + System.currentTimeMillis() + ":" + time);
+		monitor.writeControlComment("ParkIN" + ":" + x + ":" + w + ":" + velo);
+		/// Timer für alle 0.1 s
+
+	}
+	private void ParkOut() {
+		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
+		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
+		admL.setDeltaT(100);
+		admR.setDeltaT(100);
+		if (mutex == 0) {
+			time = System.currentTimeMillis();
+			mutex = 1;
+		}
+		long diff = System.currentTimeMillis() - time;
+		if (x > 0.5) {
+			stop();
+			return;
+		}
+		if (diff % 1000 < 109) {
+			x = x + 0.1;
+
+			double a = -5.486;
+			double b = 3.70305;
+			double v = 1;
+			velo = Math.sqrt(v * v + Math.pow((3 * a * v * v * v * x * x + 2 * b * v * v * x), 2));
+			w = 2 * (3 * a * x + b) / (Math.pow((3 * a * x * x + 2 * b * x), 2) + 1);
+			christmasDrive((velo * 5), (w*3));
+
+		}
+		// if(currentPosition.getHeading())
+		monitor.writeControlComment("Time " + diff + ":" + System.currentTimeMillis() + ":" + time);
+		monitor.writeControlComment("ParkIN" + ":" + x + ":" + w + ":" + velo);
+		/// Timer für alle 0.1 s
+	}
+	
+	private void ParkNow() {
+		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
+		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
+		admL.setDeltaT(100);
+		admR.setDeltaT(100);
+		if (mutex == 0) {
+			time = System.currentTimeMillis();
+			mutex = 1;
+		}
+		long diff = System.currentTimeMillis() - time;
+		if (x_back < -0.5) {
+			stop();
+			return;
+		}
+		if (diff % 1000 < 109) {
+			x_back = x_back - 0.1;
+
+			double a = -5.486;
+			double b = 3.70305;
+			double v = 1;
+			velo = Math.sqrt(v * v + Math.pow((3 * a * v * v * v * x_back * x_back + 2 * b * v * v * (-x_back)), 2));
+			w = 2 * (3 * a * (-x_back) + b) / (Math.pow((3 * a * x_back * x_back + 2 * b * (-x_back)), 2) + 1);
+			christmasDrive(-(velo * 3), (w*3));
+
+		}
+		// if(currentPosition.getHeading())
+		monitor.writeControlComment("Time " + diff + ":" + System.currentTimeMillis() + ":" + time);
+		monitor.writeControlComment("ParkNOW" + ":" + x_back + ":" + w + ":" + -3*velo);
+		/// Timer für alle 0.1 s
+	}
 }
