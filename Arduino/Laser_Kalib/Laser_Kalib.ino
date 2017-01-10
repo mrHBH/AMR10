@@ -28,12 +28,12 @@ float poly3[] = {7.3493,-91.9851,484.9839,-1403.6417,2436.7193,-2605.7837,1699.4
 signed long x = 0;                        // Variables for our 'cursor'
 signed long y = 0;                        //
 
-int TriAPin = 2;
+int TriAPin = 1;
 
 
 int pixeldata[676];                           //speichert den Wert eines jeden Pixels
 int c = 0;                                // Counter variable for coordinate reporting
-int mode =99;                              //Modus-variable:
+int mode =2;                              //Modus-variable:
                                           //99-> sende kontinuierlich die x&y-Position und surface quality
                                           //1-> sende einmalig das Kamerabild
                                           //2-> sende kontinuierlich die Spannung an Analog0 in V
