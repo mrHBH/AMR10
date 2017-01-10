@@ -75,7 +75,7 @@ public interface IControl {
 	 * @param currentPosition the current position of the robot at each sampling  
 	 */	
 	public void setPose(Pose currentPosition); 	
-	
+	public void setBackwords(boolean back);
 
 	
 	

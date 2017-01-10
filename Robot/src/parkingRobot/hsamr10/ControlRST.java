@@ -125,6 +125,7 @@ public class ControlRST implements IControl {
 	double calculatedPositionBefore = 0;
 	boolean finalDestination = false;
 	boolean finalLocation = false;
+	int mutexGetHeading = 0;
 	int mutexSetPose = 0;
 	// ##### christmasDrive #####
 		double pidL = 0;
@@ -145,6 +146,7 @@ public class ControlRST implements IControl {
 		double velo = 0;
 		double x_back = 0.1;
 		int mutex_out =0;
+		boolean parking = false;
 	/**
 	 * provides the reference transfer so that the class knows its corresponding
 	 * navigation object (to obtain the current position of the car from) and
@@ -373,11 +375,12 @@ public class ControlRST implements IControl {
 	 * Therefore the remaining angle ( to turnDegrees ) is calculated. We have
 	 * to pay attention to overflows after calculation
 	 */
-	private void turnDefinedAngle() {
+	private boolean turnDefinedAngle() {
 		if (!finalDestination) {
 
 			double turnDegrees;
-			turnDegrees = ((180 / Math.PI) * (destination.getHeading()) -((180 / Math.PI) * currentPosition.getHeading()));
+			turnDegrees = ((180 / Math.PI) * (destination.getHeading())
+					- ((180 / Math.PI) * currentPosition.getHeading()));
 			// ######## to avoid an overflow ########
 			if (turnDegrees < -180) {
 				turnDegrees = turnDegrees + 360;
@@ -394,21 +397,24 @@ public class ControlRST implements IControl {
 				// Heading
 				stop();
 				finalDestination = true;
-				return;
+				return true;
 			}
-			monitor.writeControlComment("TurnDefinedAngle" + 
-			turnDegrees
-			+":"+((180 / Math.PI) * (destination.getHeading())
-			+":"+((180 / Math.PI) * currentPosition.getHeading())));
+			monitor.writeControlComment(
+					"TurnDefinedAngle" + turnDegrees + ":" + ((180 / Math.PI) * (destination.getHeading()) + ":"
+							+ ((180 / Math.PI) * currentPosition.getHeading())));
+
 		}
+		return false;
+		
 
 	}
 
 	private void exec_SETPOSE_ALGO() {
 		monitor.writeControlComment("setPose");
 		if (mutexSetPose == 0) {
-			destination.setLocation(0.4557506f, -0.212861f);
-			destination.setHeading((float) (navigation.getPose().getHeading()));
+			destination.setLocation(1.5f,0f);
+			destination.setHeading((float) (navigation.getPose().getHeading())+180);
+		
 			mutexSetPose = 1;
 		}
 
@@ -417,35 +423,44 @@ public class ControlRST implements IControl {
 		}
 
 		if (desiredHeading == true && finalLocation == false) {
+			if( mutexGetHeading == 0){
+			phi = currentPosition.getHeading();
+			mutexGetHeading =1;
+			}
 			float distance = currentPosition.distanceTo(destination.getLocation());
 			if (Math.abs(distance) > 0.05) {
 
-				double calcPos = ((currentPosition.getY() - yStart) * Math.sin(phi))
-						+ ((currentPosition.getX() - xStart) * Math.cos(phi));
+				double calcPos = ((currentPosition.getY() - yStart) * Math.cos(phi))
+						+ ((currentPosition.getX() - xStart) * Math.sin(phi));
 
 				double kd = calcPos - calculatedPositionBefore;
-				double w = 100 * calcPos  + 5 * kd;
+				double w = 100 * calcPos + 5 * kd;
 				calculatedPositionBefore = calcPos;
 				monitor.writeControlComment("CooTrans" + " : " + distance + ":" + w + ": " + calcPos + ":" + kd);
-				monitor.writeControlComment("pose" + currentPosition.getX() + ":" + currentPosition.getY());
-				driveNEW(0.1, w);
-				
-
+				monitor.writeControlComment("pose" + phi + ":"+currentPosition.getX() + ":" + currentPosition.getY());
+				//driveNEW(0.1, w);
+				christmasDrive(5,-w);
 			} else {
 				stop();
-				mutexTurn=0;
+				mutexTurn = 0;
 				finalLocation = true;
-				
-			} /*
-				 * selse { if (distance <= 0.1) { finalLocation = true;
-				 * turnDefinedAngle(); } else { stop(); } // need to turn to the
-				 * right heading }
-				 */
+
+			} 
+			if(desiredHeading==true && finalLocation == true){
+				  
+				  if (turnDefinedAngle()){
+					  stop();
+				  }  // need to turn to the
+				   
 		}
 
-		if (desiredHeading == true && finalLocation == true) {
-			turnDefinedAngle();
+	if(desiredHeading==true&&finalLocation==true)
+
+	{
+		if(turnDefinedAngle()){
+			stop();}
 		}
+	}
 
 	}
 
@@ -453,15 +468,8 @@ public class ControlRST implements IControl {
 	 * PARKING along the generated path
 	 */
 	private void exec_PARKCTRL_ALGO() {
-		Pose neu = new Pose();
-		neu.setLocation(currentPositionDegrees.getX() + 2, 5);
-		if (currentPositionDegrees.relativeBearing(neu.getLocation()) < -1) {
-			drive(0, 30);
-		}
-		if (currentPositionDegrees.relativeBearing(neu.getLocation()) > 1) {
-			drive(0, -30);
-		}
-
+		if (parking == false){ParkNow();}
+		if (parking == true){ParkOut();}
 	}
 
 	private void exec_INACTIVE() {
@@ -742,10 +750,10 @@ public class ControlRST implements IControl {
 	private void christmasDrive(double v, double w) {
 		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
 		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
-		double kp = 0.75;//5;
-		double ki = 0.01;//0.2;
-		double kd = 0.2;//2;
-		double errorL =0;
+		double kp = 0.75;// 5;
+		double ki = 0.01;// 0.2;
+		double kd = 0.2;// 2;
+		double errorL = 0;
 		admL.setDeltaT(200);
 		admR.setDeltaT(200);
 		// ###### 1. Schritt Kinematikberechnung ##### ///
@@ -768,10 +776,15 @@ public class ControlRST implements IControl {
 		}
 		// ###### 3. Schritt PID Regelung dazuaddieren ####//
 		if (admL.getDeltaT() != 0 && admR.getDeltaT() != 0) {
-			tempSpeedLeft = (admL.getAngleSum()/360)*17.59*5;//2*Math.PI*2.8D;// admL.getDeltaT()*5;
-			tempSpeedRight = ((admR.getAngleSum()) / 360) *17.59*5; //2 * Math.PI * 2.8D;/// admR.getDeltaT()*5;
+			tempSpeedLeft = (admL.getAngleSum() / 360) * 17.59 * 5;// 2*Math.PI*2.8D;//
+																	// admL.getDeltaT()*5;
+			tempSpeedRight = ((admR.getAngleSum()) / 360) * 17.59 * 5; // 2 *
+																		// Math.PI
+																		// *
+																		// 2.8D;///
+																		// admR.getDeltaT()*5;
 			errorL = (velocityL) - tempSpeedLeft; // Because deltaT=200ms
-			double errorR =(velocityR) - tempSpeedRight;
+			double errorR = (velocityR) - tempSpeedRight;
 			if (Math.abs(errorL) < 5) {
 				integralL = 0;
 			} else {
@@ -789,14 +802,54 @@ public class ControlRST implements IControl {
 			lastErrorLinks = errorL;
 			lastErrorR = errorR;
 		}
-		// ##### fahren ####///
-		leftMotor.forward();
-		rightMotor.forward();
-		leftMotor.setPower((int) (powerL) + (int) (pidL));
-		rightMotor.setPower((int) powerR + (int)pidR );/*
-		monitor.writeControlComment("ChristmasDrive" + ": " + (int) powerL + ":" + (int)powerR + ":" + (int)pidL + ":" + (int)pidR + ":"
-				+ velocityL + ":" + velocityR + ":" + tempSpeedLeft + ":" + tempSpeedRight
-				+ ":" + errorL ); */
+
+		if (v != 0 && w == 0) {
+
+			if (mutexStraight == 0) {
+				resetAdd();
+				mutexStraight = 1;
+				mutexTurn = 0;
+			}
+			addL = addL + admL.getAngleSum();
+			addR = addR + admR.getAngleSum();
+			double KpStraight = 0.9;
+			double KiStraight = 0.17;
+			double KdStraight = 0;
+			tempErrorVWLeft = addL - addR;
+			if (tempErrorVWLeft == 0) {
+				integral = 0;
+			} // Do an antiwindupcontrol
+			if (tempErrorVWLeft > 8) {
+				tempErrorVWLeft = 8;
+			} // Fehlerbegrenzung für Peak
+			integral = integral + tempErrorVWLeft;
+			difference = tempErrorVWLeft - lastErrorVWLeft;
+			double ks = (KpStraight * tempErrorVWLeft) + (KiStraight * integral) + (KdStraight * difference);
+			int left = (int) (powerL - ks);
+			int right = (int) (powerR + ks);
+			leftMotor.forward();
+			rightMotor.forward();
+			leftMotor.setPower(left);
+			rightMotor.setPower(right);
+			monitor.writeControlComment("links" + ks + ":" + left + ":" + right + "temError" + tempErrorVWLeft);
+
+			lastErrorVWLeft = tempErrorVWLeft;
+		} else {
+
+			// ##### fahren ####///
+			leftMotor.forward();
+			rightMotor.forward();
+			leftMotor.setPower((int) (powerL) + (int) (pidL));
+			rightMotor.setPower((int) powerR
+					+ (int) pidR);/*
+									 * monitor.writeControlComment(
+									 * "ChristmasDrive" + ": " + (int) powerL +
+									 * ":" + (int)powerR + ":" + (int)pidL + ":"
+									 * + (int)pidR + ":" + velocityL + ":" +
+									 * velocityR + ":" + tempSpeedLeft + ":" +
+									 * tempSpeedRight + ":" + errorL );
+									 */
+		}
 	}
 
 	private void ParkIn() {
@@ -814,14 +867,16 @@ public class ControlRST implements IControl {
 			return;
 		}
 		if (diff % 1000 < 109) {
-			x = x +0.1;
+			x = x + 0.1;
 
 			double a = 5.486;
-			double b =  -3.70305;
+			double b = -3.70305;
 			double v = 1;
 			velo = Math.sqrt(v * v + Math.pow((3 * a * v * v * v * x * x + 2 * b * v * v * x), 2));
 			w = 2 * (3 * a * x + b) / (Math.pow((3 * a * x * x + 2 * b * x), 2) + 1);
-			christmasDrive((velo * 3), (w*3));
+			// if (currentPosition.getHeading()!=destination.getHeading()){
+			christmasDrive((velo * 3), (w * 3));
+			// }
 
 		}
 		// if(currentPosition.getHeading())
@@ -830,6 +885,7 @@ public class ControlRST implements IControl {
 		/// Timer für alle 0.1 s
 
 	}
+
 	private void ParkOut() {
 		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
 		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
@@ -842,6 +898,7 @@ public class ControlRST implements IControl {
 		long diff = System.currentTimeMillis() - time;
 		if (x > 0.5) {
 			stop();
+			parking = false;
 			return;
 		}
 		if (diff % 1000 < 109) {
@@ -852,7 +909,7 @@ public class ControlRST implements IControl {
 			double v = 1;
 			velo = Math.sqrt(v * v + Math.pow((3 * a * v * v * v * x * x + 2 * b * v * v * x), 2));
 			w = 2 * (3 * a * x + b) / (Math.pow((3 * a * x * x + 2 * b * x), 2) + 1);
-			christmasDrive((velo * 5), (w*3));
+			christmasDrive((velo * 5), (w * 3));
 
 		}
 		// if(currentPosition.getHeading())
@@ -860,7 +917,7 @@ public class ControlRST implements IControl {
 		monitor.writeControlComment("ParkIN" + ":" + x + ":" + w + ":" + velo);
 		/// Timer für alle 0.1 s
 	}
-	
+
 	private void ParkNow() {
 		AngleDifferenceMeasurement admL = perception.getControlLeftEncoder().getEncoderMeasurement();
 		AngleDifferenceMeasurement admR = perception.getControlRightEncoder().getEncoderMeasurement();
@@ -872,7 +929,8 @@ public class ControlRST implements IControl {
 		}
 		long diff = System.currentTimeMillis() - time;
 		if (x_back < -0.5) {
-			stop();
+			parking = true;
+			setCtrlMode(IControl.ControlMode.INACTIVE);
 			return;
 		}
 		if (diff % 1000 < 109) {
@@ -883,12 +941,32 @@ public class ControlRST implements IControl {
 			double v = 1;
 			velo = Math.sqrt(v * v + Math.pow((3 * a * v * v * v * x_back * x_back + 2 * b * v * v * (-x_back)), 2));
 			w = 2 * (3 * a * (-x_back) + b) / (Math.pow((3 * a * x_back * x_back + 2 * b * (-x_back)), 2) + 1);
-			christmasDrive(-(velo * 3), (w*3));
+			christmasDrive(-(velo * 3), (w * 3));
 
 		}
 		// if(currentPosition.getHeading())
 		monitor.writeControlComment("Time " + diff + ":" + System.currentTimeMillis() + ":" + time);
-		monitor.writeControlComment("ParkNOW" + ":" + x_back + ":" + w + ":" + -3*velo);
+		monitor.writeControlComment("ParkNOW" + ":" + x_back + ":" + w + ":" + -3 * velo);
 		/// Timer für alle 0.1 s
+	}
+
+	private void turn90(Pose pose, double w) {
+		while (currentPosition.getHeading() < pose.getHeading() + 90) {
+			drive(0, w);
+		}
+		stop();
+		return;
+	}
+
+	private void testSequenz1() {
+		// drive (10,0);
+		// turn90(currentPose,15)
+		// drive (5,0);
+		// Linefollower
+		// Startpunkt
+		// setPose()
+		// Linefollower
+		// 2x turn90(currentPos,30)
+		// Einparken
 	}
 }
