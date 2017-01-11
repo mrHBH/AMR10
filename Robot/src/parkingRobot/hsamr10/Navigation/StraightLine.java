@@ -12,7 +12,6 @@ import lejos.robotics.navigation.Pose;
 
 import java.util.LinkedList;
 import java.util.List;
-//import java.util.Collection;
 
 /**
  * class to handle line specific calculations for each part of the map
@@ -35,7 +34,9 @@ public class StraightLine {
 	private List<Double> parkingFrontPoints;
 	private List<Double> parkingBackPoints;
 	private List<Integer> parkingID;
-	
+	private List<Integer> parkingCount;
+	private List<Integer> parkingMeasurementQuality;
+
 
 	/**
 	 * used for monitoring purposes
@@ -55,6 +56,10 @@ public class StraightLine {
 		SOUTH,
 		WEST
 	}
+	
+	private static final double DISTANCE_LIGHTSENSORS_ROBOTCENTRE = 0.06;
+	
+	
 	/**
 	 * Class constructor. Defines the lines direction according to start and target points
 	 * 
@@ -75,9 +80,11 @@ public class StraightLine {
 			if 		( startCoordinate < endCoordinate )  {this.direction = Direction.EAST; }
 			else if ( startCoordinate > endCoordinate )  {this.direction = Direction.WEST; }
 		}
-		this.parkingFrontPoints = new LinkedList<Double>();
-		this.parkingBackPoints  = new LinkedList<Double>();
-		this.parkingID		 	= new LinkedList<Integer>();
+		this.parkingFrontPoints			= new LinkedList<Double>();
+		this.parkingBackPoints			= new LinkedList<Double>();
+		this.parkingID		 			= new LinkedList<Integer>();
+		this.parkingCount				= new LinkedList<Integer>();
+		this.parkingMeasurementQuality	= new LinkedList<Integer>();
 		
 		
 	}
@@ -96,18 +103,24 @@ public class StraightLine {
 	 * @param ID  id to be given, if the slot is new
 	 * @param frontBoundaryPosition  position of parking slot front boundary, robot passes it second after the back boundary
 	 * @param backBoundaryPosition  position of parking slot back boundary, robot passes it first then the front boundary
-	 * @return  true, if the parking slot added as a new one in the database (and therefore the ID counter has to be incremented)
+	 * @param offset  sensor's location relative to the robot's centre (wheel axis)
+	 * @return  true, if the parking slot added as a new one in the database (and therefore the ID counter has to be incremented),
+	 * otherwise false.
 	 */
-	public boolean newParkingSlotSpotted(int ID, double frontBoundaryPosition, double backBoundaryPosition, double offset) {
-		if ( this.id==5 ) { return false; } // there is no parking slot, robot is turning to a street
+	public int newParkingSlotSpotted(int ID, double frontBoundaryPosition, double backBoundaryPosition, double offset) {
+		if ( this.id==5 || this.id==3 ) { return -1; } // there is no parking slot, robot is turning to a street		
+
 		
-		boolean slotNotInDatabase = true;
-		
-		// maybe this condition is not necessary...
 		if ( (this.startCoordinate < this.endCoordinate && backBoundaryPosition > frontBoundaryPosition) || 
 			 (this.startCoordinate > this.endCoordinate && backBoundaryPosition < frontBoundaryPosition)	) {
-			return false; // ParkingSlot cannot exist, this behaviour might appear at the very edge of a line
+			return -1; // ParkingSlot cannot exist, this behaviour might appear at the very edge of a line
 		}
+		
+		if ( Math.abs( frontBoundaryPosition - backBoundaryPosition ) < 0.05 ) { // always disregard parking slots smaller than the length of 50 mm
+			return -1;
+		}
+		
+		boolean slotNotInDatabase = true;
 		
 		if (this.startCoordinate < this.endCoordinate) {
 			 backBoundaryPosition  += offset;
@@ -117,6 +130,7 @@ public class StraightLine {
 			 backBoundaryPosition  -= offset;
 			 frontBoundaryPosition -= offset;
 		}
+		
 		
 		
 		double existingFrontBoundary, existingBackBoundary;
@@ -153,6 +167,7 @@ public class StraightLine {
 			this.parkingBackPoints.add(backBoundaryPosition);
 			this.parkingFrontPoints.add(frontBoundaryPosition);
 			this.parkingID.add(ID);
+			this.parkingCount.add(1);
 			
 			comment = "new Slot: ";
 		}
@@ -164,8 +179,14 @@ public class StraightLine {
 			comment = "old Slot: ";
 		}
 		//this.monitor.writeNavigationComment(comment + backBoundaryPosition + " " + frontBoundaryPosition + " " + this.id);
-
-		return slotNotInDatabase;
+		
+		if (slotNotInDatabase) {
+			return -1;
+		}
+		else {
+			return ID;
+		}
+		
 	}
 	/**
 	 * 
@@ -291,27 +312,27 @@ public class StraightLine {
 		//if (this.conditionAngle) {
 			// Reset one axis (currently hard, maybe implement with filter)
 			
-			/*
-			switch( this.followingLine.direction ) {
-			case EAST:
-				x = pose.getX();
-				y = this.followingLine.constCoordinate;
-				break;
-			case WEST:
-				x = pose.getX();
-				y = this.followingLine.constCoordinate;
-				break;
+			
+			switch( this.direction ) {
 			case NORTH:
-				x = this.followingLine.constCoordinate;
-				y = pose.getY();
+				x = pose.getX();
+				y = ( this.followingLine.constCoordinate - DISTANCE_LIGHTSENSORS_ROBOTCENTRE + pose.getY() )/ 2;
 				break;
 			case SOUTH:
-				x = this.followingLine.constCoordinate;
+				x = pose.getX();
+				y = ( this.followingLine.constCoordinate + DISTANCE_LIGHTSENSORS_ROBOTCENTRE + pose.getY() )/ 2;
+				break;
+			case EAST:
+				x = ( this.followingLine.constCoordinate - DISTANCE_LIGHTSENSORS_ROBOTCENTRE + pose.getX() )/ 2;
+				y = pose.getY();
+				break;
+			case WEST:
+				x = ( this.followingLine.constCoordinate + DISTANCE_LIGHTSENSORS_ROBOTCENTRE + pose.getX() )/ 2;
 				y = pose.getY();
 				break;
 			}
 			//pose.setLocation( (float)x, (float)y);			
-			*/
+			
 			this.conditionAngle = false;
 			this.conditionDistance = false;
 			
@@ -353,7 +374,7 @@ public class StraightLine {
 						(float)this.constCoordinate * 100);
 			}
 			
-			if ( Math.abs(this.parkingFrontPoints.get(i)-this.parkingBackPoints.get(i)) > 0.45 ) {
+			if ( Math.abs(this.parkingFrontPoints.get(i)-this.parkingBackPoints.get(i)) > 0.40 ) {
 				parkingSlotStatus = ParkingSlotStatus.SUITABLE_FOR_PARKING;
 			}
 			else {
