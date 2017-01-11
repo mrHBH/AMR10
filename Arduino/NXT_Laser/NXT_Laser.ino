@@ -25,10 +25,10 @@ float poly2[] = {-2.9039,34.9743,-174.1284,461.9265,-696.7437,575.7578,-197.3571
 float poly3[] = {7.3493,-91.9851,484.9839,-1403.6417,2436.7193,-2605.7837,1699.4529,-647.7749,131.933};
 
 //the Distancesensor-pins on the Arduino (Analogpin-)
-const byte FRONT = 1;
-const byte FRONTSIDE = 2;
+const byte FRONT = 3;
+const byte FRONTSIDE =1; // fRONTSIDE IS OKAY
 const byte BACK = 0;
-const byte BACKSIDE = 3;
+const byte BACKSIDE = 2;
 
 //MausodometrieVariablen
 //Mauskallibrierwerte
@@ -332,4 +332,3 @@ void loop() {
 
   }
 }
-
