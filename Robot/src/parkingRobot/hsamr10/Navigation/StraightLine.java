@@ -205,7 +205,7 @@ public class StraightLine {
 			this.parkingMeasurementQualityFront.add( frontDeviation );
 			this.parkingMeasurementQualityBack.add(   backDeviation );
 			
-			comment = "1.M: ";
+			comment = "1.M: " + ID;
 			
 		}
 //
@@ -217,9 +217,11 @@ public class StraightLine {
 			backDeviation = this.parkingMeasurementQualityBack.get( index );
 			frontDeviation = this.parkingMeasurementQualityFront.get( index );
 			
-			comment = parkingCount.get(index) + ".M: ";
+			ID = this.parkingID.get(index);
+			
+			comment = parkingCount.get(index) + ".M: " + parkingID.get(index);
 		}
-		comment = comment + "ID: " +this.id +"  Back: " + backBoundaryPosition + "  Front: " + frontBoundaryPosition;
+		comment = comment + " Line: " +this.id +"  Back: " + backBoundaryPosition + "  Front: " + frontBoundaryPosition;
 		comment = comment  + "  deltab:" + backDeviation + "  deltaf:" + frontDeviation;
 		this.monitor.writeNavigationComment(comment);
 		
