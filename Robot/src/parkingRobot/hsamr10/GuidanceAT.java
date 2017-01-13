@@ -552,7 +552,7 @@ public class GuidanceAT {
     	//	Origin.x/=100;
     		//Origin.y/=100;
     		//	Origin.setLocation(Origin.getX()/100, Origin.getY()/100);
-    		    LastisSuitable = Array[Array.length-1].getStatus()==ParkingSlotStatus.SUITABLE_FOR_PARKING ? true : false;
+    		   if (Array.length!=0){ LastisSuitable = Array[Array.length-1].getStatus()==ParkingSlotStatus.SUITABLE_FOR_PARKING ? true : false;}
 		      //LastisSuitable = Array[navigation.getLastChangedSlot()].getStatus()==ParkingSlotStatus.SUITABLE_FOR_PARKING ? true : false;
 
                 if (LastisSuitable==true) {lejos.nxt.Sound.beepSequence();
