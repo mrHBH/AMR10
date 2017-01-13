@@ -35,7 +35,8 @@ public class StraightLine {
 	private List<Double> parkingBackPoints;
 	private List<Integer> parkingID;
 	private List<Integer> parkingCount;
-	private List<Integer> parkingMeasurementQuality;
+	private List<Double> parkingMeasurementQualityFront;
+	private List<Double> parkingMeasurementQualityBack;
 
 
 	/**
@@ -84,7 +85,8 @@ public class StraightLine {
 		this.parkingBackPoints			= new LinkedList<Double>();
 		this.parkingID		 			= new LinkedList<Integer>();
 		this.parkingCount				= new LinkedList<Integer>();
-		this.parkingMeasurementQuality	= new LinkedList<Integer>();
+		this.parkingMeasurementQualityFront	= new LinkedList<Double>();
+		this.parkingMeasurementQualityBack	= new LinkedList<Double>();
 		
 		
 	}
@@ -104,11 +106,16 @@ public class StraightLine {
 	 * @param frontBoundaryPosition  position of parking slot front boundary, robot passes it second after the back boundary
 	 * @param backBoundaryPosition  position of parking slot back boundary, robot passes it first then the front boundary
 	 * @param offset  sensor's location relative to the robot's centre (wheel axis)
-	 * @return  true, if the parking slot added as a new one in the database (and therefore the ID counter has to be incremented),
+	 * @param frontDeviation 
+	 * @param backDeviation 
+	 * @return  -1, if the parking slot added as a new one in the database (and therefore the ID counter has to be incremented),
 	 * otherwise false.
 	 */
-	public int newParkingSlotSpotted(int ID, double frontBoundaryPosition, double backBoundaryPosition, double offset) {
-		if ( this.id==5 || this.id==3 ) { return -1; } // there is no parking slot, robot is turning to a street		
+	public int newParkingSlotSpotted(int ID,
+			double frontBoundaryPosition, double backBoundaryPosition,
+			double offset,
+			double frontDeviation, double backDeviation) {
+		if ( this.id==5 || this.id==3 ) { return -1; } // there is no parking slot, robot is turning from / to a street		
 
 		
 		if ( (this.startCoordinate < this.endCoordinate && backBoundaryPosition > frontBoundaryPosition) || 
@@ -132,32 +139,59 @@ public class StraightLine {
 		}
 		
 		
-		
-		double existingFrontBoundary, existingBackBoundary;
+		int index = 0;
+
+		double existingFrontBoundary, existingBackBoundary, existingFrontDeviation, existingBackDeviation, newFrontBoundary, newBackBoundary;
 		for (int i=0; i<this.parkingID.size(); i++) {
 			existingFrontBoundary = this.parkingFrontPoints.get(i);
 			existingBackBoundary  = this.parkingBackPoints.get(i);
+			existingFrontDeviation = this.parkingMeasurementQualityFront.get(i);
+			existingBackDeviation  = this.parkingMeasurementQualityBack.get(i);
 			
 			// comparing two parking zones with each other. If a front boundary position is in between the other parking slot (OR vice versa) they overlap.
 			if (this.startCoordinate < this.endCoordinate) {
 				if ((existingBackBoundary < frontBoundaryPosition && frontBoundaryPosition < existingFrontBoundary) ||
 					(backBoundaryPosition < existingFrontBoundary && existingFrontBoundary < frontBoundaryPosition)) {
 					
-					// setting the boundary position to the location the robot perceives "earlier"
-					parkingFrontPoints.set(i, Math.min(existingFrontBoundary, frontBoundaryPosition) );
-					parkingBackPoints.set (i, Math.min(existingBackBoundary,  backBoundaryPosition) );
+					// setting the boundary position to the location the robot perceives with higher precision
+					//parkingFrontPoints.set(i, Math.min(existingFrontBoundary, frontBoundaryPosition) );
+					//parkingBackPoints.set (i, Math.min(existingBackBoundary,  backBoundaryPosition) );
+					newFrontBoundary = (existingFrontBoundary * frontDeviation + frontBoundaryPosition * existingFrontDeviation) /
+										(frontDeviation + existingFrontDeviation);
+					newBackBoundary = (existingBackBoundary * backDeviation + backBoundaryPosition * existingBackDeviation) /
+										(backDeviation + existingBackDeviation);
+					
+					parkingFrontPoints.set(i, newFrontBoundary);
+					parkingBackPoints.set (i, newBackBoundary );
+					
+					parkingMeasurementQualityFront.set(i, Math.min(frontDeviation, existingFrontDeviation));
+					parkingMeasurementQualityBack.set(i, Math.min(backDeviation, existingBackDeviation));
+										
 					slotNotInDatabase = false;
-					ID = i;
+					index = i;
 				}
 			}
 			else {
 				if ((existingBackBoundary > frontBoundaryPosition && frontBoundaryPosition > existingFrontBoundary) ||
 					(backBoundaryPosition > existingFrontBoundary && existingFrontBoundary > frontBoundaryPosition)) {
 					
-					parkingFrontPoints.set(i, Math.max(existingFrontBoundary, frontBoundaryPosition) );
-					parkingBackPoints.set (i, Math.max(existingBackBoundary,  backBoundaryPosition) );
+					//parkingFrontPoints.set(i, Math.max(existingFrontBoundary, frontBoundaryPosition) );
+					//parkingBackPoints.set (i, Math.max(existingBackBoundary,  backBoundaryPosition) );
+					
+					newFrontBoundary = (existingFrontBoundary * frontDeviation + frontBoundaryPosition * existingFrontDeviation) /
+										(frontDeviation + existingFrontDeviation);
+					newBackBoundary = (existingBackBoundary * backDeviation + backBoundaryPosition * existingBackDeviation) /
+										(backDeviation + existingBackDeviation);
+					
+					parkingFrontPoints.set(i, newFrontBoundary);
+					parkingBackPoints.set (i, newBackBoundary );
+					
+					parkingMeasurementQualityFront.set(i, Math.min(frontDeviation, existingFrontDeviation));
+					parkingMeasurementQualityBack.set(i, Math.min(backDeviation, existingBackDeviation));
+									
+					
 					slotNotInDatabase = false;
-					ID = i;
+					index = i;
 				}
 			}
 		}
@@ -168,17 +202,26 @@ public class StraightLine {
 			this.parkingFrontPoints.add(frontBoundaryPosition);
 			this.parkingID.add(ID);
 			this.parkingCount.add(1);
+			this.parkingMeasurementQualityFront.add( frontDeviation );
+			this.parkingMeasurementQualityBack.add(   backDeviation );
 			
-			comment = "new Slot: ";
+			comment = "1.M: ";
+			
 		}
 //
 		else {
-			backBoundaryPosition = this.parkingBackPoints.get( ID );
-			frontBoundaryPosition = this.parkingFrontPoints.get( ID );
+			index = 0;
+			backBoundaryPosition = this.parkingBackPoints.get( index );
+			frontBoundaryPosition = this.parkingFrontPoints.get( index );
+			parkingCount.set(index, parkingCount.get(index)+1);
+			backDeviation = this.parkingMeasurementQualityBack.get( index );
+			frontDeviation = this.parkingMeasurementQualityFront.get( index );
 			
-			comment = "old Slot: ";
+			comment = parkingCount.get(index) + ".M: ";
 		}
-		//this.monitor.writeNavigationComment(comment + backBoundaryPosition + " " + frontBoundaryPosition + " " + this.id);
+		comment = comment + "ID: " +this.id +"  Back: " + backBoundaryPosition + "  Front: " + frontBoundaryPosition;
+		comment = comment  + "  deltab:" + backDeviation + "  deltaf:" + frontDeviation;
+		this.monitor.writeNavigationComment(comment);
 		
 		if (slotNotInDatabase) {
 			return -1;
