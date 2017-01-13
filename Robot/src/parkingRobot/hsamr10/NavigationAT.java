@@ -114,7 +114,7 @@ public class NavigationAT implements INavigation{
 	/**
 	 * robot specific constant: radius of left wheel
 	 */
-	static final double LEFT_WHEEL_RADIUS	= 	0.0276; // only rough guess, to be measured exactly and maybe refined by experiments
+	static final double LEFT_WHEEL_RADIUS	= 	0.0295; // only rough guess, to be measured exactly and maybe refined by experiments
 	/**
 	 * robot specific constant: radius of right wheel
 	 */
@@ -122,7 +122,7 @@ public class NavigationAT implements INavigation{
 	/**
 	 * robot specific constant: distance between wheels
 	 */
-	static final double WHEEL_DISTANCE		= 	0.096; // only rough guess, to be measured exactly and maybe refined by experiments
+	static final double WHEEL_DISTANCE		= 	0.1205; // only rough guess, to be measured exactly and maybe refined by experiments
 	
 	private double leftAngleSpeed		 = 0;
 	private double rightAngleSpeed		 = 0;
@@ -232,14 +232,15 @@ public class NavigationAT implements INavigation{
 		this.encoderRight = perception.getNavigationRightEncoder();
 		this.mouseodo	  = perception.getNavigationOdo();
 		
-		
+		/*
 		monitor.addNavigationVar("xCoordinate" );
 		monitor.addNavigationVar("yCoordinate");
 		monitor.addNavigationVar("angle" );
 
-		monitor.addNavigationVar("frontSide");
-		monitor.addNavigationVar("backSide");
-
+		monitor.addNavigationVar("leftSpeed");
+		monitor.addNavigationVar("rightSpeed");
+		monitor.addNavigationVar("time");
+*/
 		
 		navThread.setPriority(Thread.MAX_PRIORITY - 1);
 		navThread.setDaemon(true); // background thread that is not need to terminate in order for the user program to terminate
@@ -309,14 +310,15 @@ public class NavigationAT implements INavigation{
 			LCD.drawString("DevB: " + slotBoundariesBackSide[3], 0, 2);
 			LCD.drawString("DevF: " + slotBoundariesBackSide[2], 0, 3);
 			LCD.drawString("FSide: " + this.frontSideSensorDistance, 0, 5);
-			
+			/*
 			monitor.writeNavigationVar("xCoordinate", ""+this.pose.getX()*100 );
 			monitor.writeNavigationVar("yCoordinate", ""+this.pose.getY()*100);
 			monitor.writeNavigationVar("angle", ""+this.pose.getHeading()*180/Math.PI );
 
-			monitor.writeNavigationVar("frontSide", ""+this.frontSideSensorDistance);
-			monitor.writeNavigationVar("backSide", ""+this.backSideSensorDistance);
-
+			monitor.writeNavigationVar("leftSpeed", ""+this.leftAngleSpeed);
+			monitor.writeNavigationVar("rightSpeed", ""+this.rightAngleSpeed);
+			monitor.writeNavigationVar("time", ""+((double)this.angleMeasurementLeft.getDeltaT())/1000 );
+*/
 		}
 
 		/*
@@ -646,14 +648,6 @@ public class NavigationAT implements INavigation{
 		pose.setLocation((float)xResult, (float)yResult);
 		pose.setHeading( (float)angleResult);
 		
-		/*
-		monitor.writeNavigationVar("xCoordinate", ""+( xResult ) );
-		monitor.writeNavigationVar("yCoordinate", ""+( yResult ) );
-		monitor.writeNavigationVar("angle", ""+( angleResult *180/Math.PI ) );
-		monitor.writeNavigationVar("leftEncoder", ""+leftAngleSpeed);
-		monitor.writeNavigationVar("rightEncoder", ""+rightAngleSpeed);
-		monitor.writeNavigationVar("leftTime", ""+deltaT);		
-		*/
 		return pose;
 	}
 	
@@ -694,7 +688,10 @@ public class NavigationAT implements INavigation{
 					this.detectingSlotFrontSide = false;
 					this.detectionDelayFrontSide = 0;
 					newslot = this.currentLine.newParkingSlotSpotted(
-							parkingSlotIDCounter, slotBoundariesFrontSide[0], slotBoundariesFrontSide[1], OFFSET_PARKSLOT_FRONTSIDE);
+							parkingSlotIDCounter,
+							slotBoundariesFrontSide[0], slotBoundariesFrontSide[1],
+							OFFSET_PARKSLOT_FRONTSIDE,
+							slotBoundariesFrontSide[2], slotBoundariesFrontSide[3]);
 					if ( -1== newslot) {
 						this.lastSlotChangedID = this.parkingSlotIDCounter;
 						this.parkingSlotIDCounter++;
@@ -738,7 +735,10 @@ public class NavigationAT implements INavigation{
 					this.detectingSlotBackSide = false;
 					this.detectionDelayBackSide = 0;
 					newslot = this.currentLine.newParkingSlotSpotted(
-							parkingSlotIDCounter, slotBoundariesBackSide[0], slotBoundariesBackSide[1], OFFSET_PARKSLOT_BACKSIDE );
+							parkingSlotIDCounter,
+							slotBoundariesBackSide[0], slotBoundariesBackSide[1],
+							OFFSET_PARKSLOT_BACKSIDE,
+							slotBoundariesBackSide[2], slotBoundariesBackSide[3]);
 					if ( newslot == -1 ){
 						this.lastSlotChangedID = this.parkingSlotIDCounter;
 						this.parkingSlotIDCounter++;
