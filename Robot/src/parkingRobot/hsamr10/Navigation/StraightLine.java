@@ -1,9 +1,7 @@
 package parkingRobot.hsamr10.Navigation;
 
-import parkingRobot.INavigation;
 import parkingRobot.INavigation.ParkingSlot;
 import parkingRobot.INavigation.ParkingSlot.ParkingSlotStatus;
-import parkingRobot.IPerception;
 import parkingRobot.IMonitor;
 
 import lejos.geom.Line;
@@ -29,14 +27,31 @@ public class StraightLine {
 	private double constCoordinate;
 	private boolean conditionAngle = false;
 	private boolean conditionDistance = false;
+	/**
+	 * variable to represent line's id number
+	 */
 	public int id;
-	//private LinkedList<ParkingSlot> parkingSlots;
+
 	private List<Double> parkingFrontPoints;
 	private List<Double> parkingBackPoints;
 	private List<Integer> parkingID;
 	private List<Integer> parkingCount;
 	private List<Double> parkingMeasurementQualityFront;
 	private List<Double> parkingMeasurementQualityBack;
+	
+	/**
+	 * minimal size regardless to be a suitable parking slot. unit in meters
+	 */
+	private static final double REQUIRED_PARKSIZE = 0.35;
+	/**
+	 * minimal size for difficult parking slots right before or after a corner. unit in meters
+	 */
+	private static final double REQUIRED_PARKSIZE_AT_LINEBORDERS = 0.40;
+	/**
+	 * define difficult areas. unit in meters
+	 */
+	private static final double LINEBORDERS_RANGE = 0.05;
+	
 
 
 	/**
@@ -52,9 +67,21 @@ public class StraightLine {
 	 *
 	 */
 	public enum Direction {
+		/**
+		 * direction given by vector (x y) = (0 1)
+		 */
 		NORTH,
+		/**
+		 * direction given by vector (x y) = (1 0)
+		 */
 		EAST,
+		/**
+		 * direction given by vector (x y) = (0 -1)
+		 */
 		SOUTH,
+		/**
+		 * direction given by vector (x y) = (-1 0)
+		 */
 		WEST
 	}
 	
@@ -109,22 +136,22 @@ public class StraightLine {
 	 * @param frontDeviation 
 	 * @param backDeviation 
 	 * @return  -1, if the parking slot added as a new one in the database (and therefore the ID counter has to be incremented),
-	 * otherwise false.
+	 * -2 if that's not a true parking slot due to location and size, otherwise the ID that has to be updated.
 	 */
 	public int newParkingSlotSpotted(int ID,
 			double frontBoundaryPosition, double backBoundaryPosition,
 			double offset,
 			double frontDeviation, double backDeviation) {
-		if ( this.id==5 || this.id==3 ) { return -1; } // there is no parking slot, robot is turning from / to a street		
+		if ( this.id==5 || this.id==3 ) { return -2; } // there is no parking slot, robot is turning from / to a street		
 
 		
 		if ( (this.startCoordinate < this.endCoordinate && backBoundaryPosition > frontBoundaryPosition) || 
 			 (this.startCoordinate > this.endCoordinate && backBoundaryPosition < frontBoundaryPosition)	) {
-			return -1; // ParkingSlot cannot exist, this behaviour might appear at the very edge of a line
+			return -2; // ParkingSlot cannot exist, this behaviour might appear at the very edge of a line
 		}
 		
 		if ( Math.abs( frontBoundaryPosition - backBoundaryPosition ) < 0.05 ) { // always disregard parking slots smaller than the length of 50 mm
-			return -1;
+			return -2;
 		}
 		
 		boolean slotNotInDatabase = true;
@@ -153,9 +180,8 @@ public class StraightLine {
 				if ((existingBackBoundary < frontBoundaryPosition && frontBoundaryPosition < existingFrontBoundary) ||
 					(backBoundaryPosition < existingFrontBoundary && existingFrontBoundary < frontBoundaryPosition)) {
 					
-					// setting the boundary position to the location the robot perceives with higher precision
-					//parkingFrontPoints.set(i, Math.min(existingFrontBoundary, frontBoundaryPosition) );
-					//parkingBackPoints.set (i, Math.min(existingBackBoundary,  backBoundaryPosition) );
+					// setting the boundary position to a weighted average value. weight given by estimated deviation
+					
 					newFrontBoundary = (existingFrontBoundary * frontDeviation + frontBoundaryPosition * existingFrontDeviation) /
 										(frontDeviation + existingFrontDeviation);
 					newBackBoundary = (existingBackBoundary * backDeviation + backBoundaryPosition * existingBackDeviation) /
@@ -223,7 +249,7 @@ public class StraightLine {
 		}
 		comment = comment + " Line: " +this.id +"  Back: " + backBoundaryPosition + "  Front: " + frontBoundaryPosition;
 		comment = comment  + "  deltab:" + backDeviation + "  deltaf:" + frontDeviation;
-		this.monitor.writeNavigationComment(comment);
+		//this.monitor.writeNavigationComment(comment);
 		
 		if (slotNotInDatabase) {
 			return -1;
@@ -322,11 +348,11 @@ public class StraightLine {
 		double angleDifference		= absAngle( this.getAngle(), pose.getHeading() );
 		double nextAngleDifference	= absAngle( this.followingLine.getAngle(), pose.getHeading() );
 		
-		if ( angleDifference > nextAngleDifference ) {
+		if ( angleDifference > nextAngleDifference ) { // condition for new line requires minimal angle
 			this.conditionAngle = true;
 		}
 		
-		// x, y sind die Zielkoordinaten
+		// x, y are target coordinates
 		double x, y;
 		switch (this.direction) {
 			case EAST:
@@ -353,10 +379,7 @@ public class StraightLine {
 			this.conditionDistance = true;
 		}
 		
-		if ( this.conditionAngle && this.conditionDistance ) {
-		//if (this.conditionAngle) {
-			// Reset one axis (currently hard, maybe implement with filter)
-			
+		if ( this.conditionAngle && this.conditionDistance ) {		
 			
 			switch( this.direction ) {
 			case NORTH:
@@ -376,7 +399,6 @@ public class StraightLine {
 				y = pose.getY();
 				break;
 			}
-			//pose.setLocation( (float)x, (float)y);			
 			
 			this.conditionAngle = false;
 			this.conditionDistance = false;
@@ -397,11 +419,13 @@ public class StraightLine {
 		Point frontBoundaryPosition = null;
 		Point backBoundaryPosition  = null;
 		ParkingSlotStatus parkingSlotStatus = null;
+		int quality = 0;
+		double minimalSize = REQUIRED_PARKSIZE;
 		
 		for (int i=0; i<this.parkingID.size(); i++) {
 			
 			if 		( this.direction==Direction.NORTH || this.direction==Direction.SOUTH) {
-				frontBoundaryPosition = new Point(
+				frontBoundaryPosition = new Point( // multiply with 100 for HMI module
 						(float)this.constCoordinate * 100,
 						(float)this.parkingFrontPoints.get(i).doubleValue() * 100);
 				
@@ -419,7 +443,20 @@ public class StraightLine {
 						(float)this.constCoordinate * 100);
 			}
 			
-			if ( Math.abs(this.parkingFrontPoints.get(i)-this.parkingBackPoints.get(i)) > 0.40 ) {
+			if ( parkingMeasurementQualityBack.get(i) + parkingMeasurementQualityFront.get(i) < 0.05 ) { // otherwise bad measuring
+				quality = (int)
+						(Math.sqrt( 1 - Math.pow( (parkingMeasurementQualityBack.get(i) + parkingMeasurementQualityFront.get(i) )/ 0.05, 2) ) * 
+						(1 - Math.pow(2, -this.parkingCount.get(i) ) ) * 100 );
+			}
+			
+			
+			if ( Math.abs( this.startCoordinate-parkingBackPoints.get(i) ) < LINEBORDERS_RANGE ||
+				 Math.abs( this.endCoordinate-parkingFrontPoints.get(i) ) < LINEBORDERS_RANGE)  {
+				minimalSize = REQUIRED_PARKSIZE_AT_LINEBORDERS; // difficult parking slot
+			}
+			
+			if ( ( Math.abs(this.parkingFrontPoints.get(i)-this.parkingBackPoints.get(i)) > minimalSize && quality > 40 ) || // size or
+					Math.abs(this.parkingFrontPoints.get(i)-this.parkingBackPoints.get(i)) > 45) { // suitable regardless of quality
 				parkingSlotStatus = ParkingSlotStatus.SUITABLE_FOR_PARKING;
 			}
 			else {
@@ -431,12 +468,17 @@ public class StraightLine {
 					backBoundaryPosition,
 					frontBoundaryPosition,
 					parkingSlotStatus,
-					0
+					quality
 					));
 		}
 		return parkingSlots;
 	}
-	
+	/**
+	 * calculates relative angle, considering periodicy
+	 * @param angle1 first angle
+	 * @param angle2 second angle
+	 * @return relative angle of first and second one. positive value between 0 and PI
+	 */
 	public double absAngle (double angle1, double angle2) {
 		return Math.abs( Math.min ( Math.abs( angle1-angle2 ), 2*Math.PI-Math.abs( angle1-angle2 ) ) ) % (2*Math.PI);
 	}
