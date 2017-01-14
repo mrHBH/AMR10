@@ -1,12 +1,9 @@
 package parkingRobot.hsamr10;
 
-import lejos.geom.Point;
-import lejos.nxt.LCD;
 import lejos.geom.Line;
 import lejos.robotics.navigation.Pose;
 
 import parkingRobot.INavigation;
-import parkingRobot.INavigation.ParkingSlot.ParkingSlotStatus;
 import parkingRobot.IPerception;
 import parkingRobot.IMonitor;
 
@@ -28,32 +25,38 @@ import java.util.List;
  * perception sensor information is used nor any parking slot detection is performed, although the necessary members are already
  * prepared. Advanced navigation calculation and parking slot detection should be developed and invented by the students.  
  * 
- * @author IfA
+ * @author IfA, Tung Le
  */
 public class NavigationAT implements INavigation{
 	
 	/**
-	 * line information measured by right light sensor: 0 - beside line, 1 - on line border or gray underground, 2 - on line
+	 * returns the brightness of the subsurfacecolour under the left linesensor in percent (0% for calibrated black ground; 100% for calibrated white ground)
 	 */
 	int lineSensorRight	=	0;
 	/**
-	 * line information measured by left light sensor: 0 - beside line, 1 - on line border or gray underground, 2 - on line
+	 * returns the brightness of the subsurfacecolour under the right linesensor in percent (0% for calibrated black ground; 100% for calibrated white ground)
 	 */
 	int lineSensorLeft	=	0;
 	
-	static private final int LENGTH_MOVING_AVERAGE = 5;
 	
 	static private final double DISTANCE_BLACKLINE_LINESENSOR = 0.01;
+	/**
+	 * using floating average filter for line following status check
+	 */
+	static private final int LENGTH_MOVING_AVERAGE = 5; // filter delay
 	private int filterID 			= 0; // counter for array, floating average calculation
 	private int[] leftLine			= new int[LENGTH_MOVING_AVERAGE];
 	private int[] rightLine			= new int[LENGTH_MOVING_AVERAGE];
-	private float leftLineAverage 	= 0;
-	private float rightLineAverage	= 0;
+	private float leftLineAverage 	= 0; // average left line sensor value of past measurements
+	private float rightLineAverage	= 0; // average right line sensor value of past measurements
 	
 	
 	private Pose lastPose = new Pose();
 	private int lockAngleCorrection = 0;
 	
+	/**
+	 * variable, enable attempting pose correction with map
+	 */
 	private boolean lineFollowerActive = true;
 	
 	
@@ -92,45 +95,48 @@ public class NavigationAT implements INavigation{
 	IPerception.OdoDifferenceMeasurement mouseOdoMeasurement = null;
 	
 	/**
-	 * distance from optical sensor pointing in driving direction to obstacle in mm
+	 * distance from optical sensor pointing in driving direction to obstacle in cm
 	 */
 	double frontSensorDistance		=	0;
 	/**
-	 * distance from optical sensor pointing to the right side of robot to obstacle in mm (sensor mounted at the front)
+	 * distance from optical sensor pointing to the right side of robot to obstacle in cm (sensor mounted at the front)
 	 */
 	double frontSideSensorDistance	=	0;
 	/**
-	 * distance from optical sensor pointing in opposite of driving direction to obstacle in mm
+	 * distance from optical sensor pointing in opposite of driving direction to obstacle in cm
 	 */
 	double backSensorDistance		=	0;
 	/**
-	 * distance from optical sensor pointing to the right side of robot to obstacle in mm (sensor mounted at the back)
+	 * distance from optical sensor pointing to the right side of robot to obstacle in cm (sensor mounted at the back)
 	 */
 	double backSideSensorDistance	=	0;
 	
-	private double lastFrontSensorDistance = 0;
 	private double lastBackSensorDistance  = 0;
 
 	/**
-	 * robot specific constant: radius of left wheel
+	 * robot specific constant: radius of left wheel in m
 	 */
-	static final double LEFT_WHEEL_RADIUS	= 	0.0295; // only rough guess, to be measured exactly and maybe refined by experiments
+	static final double LEFT_WHEEL_RADIUS	= 	0.02795; 
 	/**
-	 * robot specific constant: radius of right wheel
+	 * robot specific constant: radius of right wheel in m
 	 */
-	static final double RIGHT_WHEEL_RADIUS	= 	LEFT_WHEEL_RADIUS * 3740/3721; // only rough guess, to be measured exactly and maybe refined by experiments
+	static final double RIGHT_WHEEL_RADIUS	= 	LEFT_WHEEL_RADIUS * 3740/3721; 
 	/**
-	 * robot specific constant: distance between wheels
+	 * robot specific constant: distance between wheels in m
 	 */
-	static final double WHEEL_DISTANCE		= 	0.1205; // only rough guess, to be measured exactly and maybe refined by experiments
-	
+	static final double WHEEL_DISTANCE		= 	0.1205; 
+	/**
+	 * robot's left wheel's angular velocity in degrees / s
+	 */
 	private double leftAngleSpeed		 = 0;
+	/**
+	 * robot's rightwheel's angular velocity in degrees / s
+	 */
 	private double rightAngleSpeed		 = 0;
 	
 	/**
 	 * map list of line references, whose corresponding lines form a closed chain and represent the map of the robot course
 	 */
-	//Line[] map 								= null;
 	private LinkedList<StraightLine> map = null;
 	/**
 	 * defines current line of map the module is operating on
@@ -156,8 +162,17 @@ public class NavigationAT implements INavigation{
 	 * variable, to check whether a parking slot measuring process is ongoing / a parking slot's beginning has been spotted
 	 */
 	static final int DETECTION_DELAY			= 3;
+	/**
+	 * indicates whether front side sensor is measuring a parking slot
+	 */
 	private boolean detectingSlotFrontSide		= false;
+	/**
+	 * indicates whether front side sensor is measuring a parking slot
+	 */
 	private boolean detectingSlotBackSide		= false;
+	/**
+	 * filter to avoid sudden peaks in distance measurements
+	 */
 	private int detectionDelayFrontSide			= 0;
 	private int detectionDelayBackSide			= 0;
 	/**
@@ -177,25 +192,26 @@ public class NavigationAT implements INavigation{
 	 */
 	private double[] slotBoundariesBackSide		= new double[4];
 	/**
-	 * quality due to sensor's reaction time, evaluated by the robot's speed
-	 */
-	private double distanceSensorQuality		= 0;
-	
-
-	/**
 	 * ID, that is given to new parking slots. Increments with each new slot. Once an ID has been used, it cannot be used, even if 
 	 * the corresponding slot is deleted afterwards.
 	 */
 	private int parkingSlotIDCounter			= 0;
-	private int lastSlotChangedID				= 0;
-	
-	
+	private int lastSlotChangedID				= -1;
+	/**
+	 * back side sensor's position relative to the robot's wheel axis
+	 */
 	static private final double OFFSET_PARKSLOT_BACKSIDE  = -0.100;
+	/**
+	 * front side sensor's position relative to the robot's wheel axis
+	 */
 	static private final double OFFSET_PARKSLOT_FRONTSIDE =  0.075;
 	/**
 	 * distance from the line course to a parking slot parallel to the line. Used for angle correction.
 	 */
 	static final double DISTANCE_ROBOTCOURSE_TO_BORDER = 0.20;
+	/**
+	 * side sensor's distance to each other
+	 */
 	static final double SIDESENSOR_DISTANCE = OFFSET_PARKSLOT_FRONTSIDE - OFFSET_PARKSLOT_BACKSIDE;
 	
 	/**
@@ -206,7 +222,9 @@ public class NavigationAT implements INavigation{
 	static private final double RELATIVEDEVIATION_ALONG_ROAD_RADENC		= 0.008; // deviation in driving direction
 	static private final double RELATIVEDEVIATION_NEXTTO_ROAD_RADENC	= 0.020; // deviation vertical to driving direction
 	static private final double RELATIVEDEVIATION_ANGLE_RADENC			= 0.010; 
-	
+	/**
+	 * estimated robot's pose' deviation
+	 */
 	private double xDeviation		= 0;
 	private double yDeviation		= 0;
 	private double angleDeviation	= 0;
@@ -232,15 +250,7 @@ public class NavigationAT implements INavigation{
 		this.encoderRight = perception.getNavigationRightEncoder();
 		this.mouseodo	  = perception.getNavigationOdo();
 		
-		/*
-		monitor.addNavigationVar("xCoordinate" );
-		monitor.addNavigationVar("yCoordinate");
-		monitor.addNavigationVar("angle" );
 
-		monitor.addNavigationVar("leftSpeed");
-		monitor.addNavigationVar("rightSpeed");
-		monitor.addNavigationVar("time");
-*/
 		
 		navThread.setPriority(Thread.MAX_PRIORITY - 1);
 		navThread.setDaemon(true); // background thread that is not need to terminate in order for the user program to terminate
@@ -253,7 +263,7 @@ public class NavigationAT implements INavigation{
 	/* (non-Javadoc)
 	 * @see parkingRobot.INavigation#setMap(lejos.geom.Line[])
 	 */
-	public void setMap(Line[] map){
+	public void setMap(Line[] map){ // using own line class
 		this.map = new LinkedList<StraightLine>();
 		this.currentLine = new StraightLine( map[0] );
 		this.map.add( this.currentLine );
@@ -276,10 +286,8 @@ public class NavigationAT implements INavigation{
 	public void setDetectionState(boolean isOn){
 		this.parkingSlotDetectionIsOn = isOn;
 		
-		if (!isOn) { // add finalising detection
-			if (this.detectingSlotBackSide) {
-				this.detectingSlotBackSide = false;
-			}
+		if (!isOn) { // finish detection. does not add current park slot if there is one measured
+			this.detectingSlotBackSide = false;
 			this.detectingSlotFrontSide = false;
 		}
 	}
@@ -295,36 +303,6 @@ public class NavigationAT implements INavigation{
 		this.calculateLocation();
 		if (this.parkingSlotDetectionIsOn)
 				this.detectParkingSlot();
-		
-		// MONITOR (example)
-//		monitor.writeNavigationComment("Navigation");
-		
-		
-
-		if (this.map != null) {
-		
-			
-			LCD.clear();
-			LCD.drawString("B: " + slotBoundariesBackSide[1], 0, 0);
-			LCD.drawString("F: " + slotBoundariesBackSide[0], 0, 1);
-			LCD.drawString("DevB: " + slotBoundariesBackSide[3], 0, 2);
-			LCD.drawString("DevF: " + slotBoundariesBackSide[2], 0, 3);
-			LCD.drawString("FSide: " + this.frontSideSensorDistance, 0, 5);
-			/*
-			monitor.writeNavigationVar("xCoordinate", ""+this.pose.getX()*100 );
-			monitor.writeNavigationVar("yCoordinate", ""+this.pose.getY()*100);
-			monitor.writeNavigationVar("angle", ""+this.pose.getHeading()*180/Math.PI );
-
-			monitor.writeNavigationVar("leftSpeed", ""+this.leftAngleSpeed);
-			monitor.writeNavigationVar("rightSpeed", ""+this.rightAngleSpeed);
-			monitor.writeNavigationVar("time", ""+((double)this.angleMeasurementLeft.getDeltaT())/1000 );
-*/
-		}
-
-		/*
-		LCD.clear();
-		LCD.drawString("Linie: " + this.currentLine.id , 0, 0);
-		*/
 	}
 	
 	
@@ -333,19 +311,13 @@ public class NavigationAT implements INavigation{
 	/* (non-Javadoc)
 	 * @see parkingRobot.INavigation#getPose()
 	 */
-	public synchronized Pose getPose(){ // defines new object, in order to remain unchanged in other modules
-		Pose posecopy = new Pose();
-		float x, y;
-		x = this.pose.getX();
-		y = this.pose.getY();
-		posecopy.setLocation(x, y);
-		posecopy.setHeading( this.pose.getHeading() );
+	public synchronized Pose getPose(){
 		return this.pose;
 	}
 	/* (non-Javadoc)
 	 * @see parkingRobot.INavigation#getParkingSlots()
 	 */
-	public synchronized ParkingSlot[] getParkingSlots() {
+	public synchronized ParkingSlot[] getParkingSlots() { // adding all parking slots to ArrayList and converting to array
 		List<ParkingSlot> parkingSlots = new LinkedList<ParkingSlot>();
 		for (int i=0; i<this.map.size(); i++) {
 			parkingSlots.addAll( this.map.get(i).getParkingSlots() );
@@ -354,22 +326,34 @@ public class NavigationAT implements INavigation{
 		ParkingSlot[] parkingSlotsArr = new ParkingSlot[parkingSlots.size()];
 		for (int i=0; i<parkingSlots.size(); i++) {
 			parkingSlotsArr[i] = parkingSlots.get(i);
-		}		
+		}
 		return parkingSlotsArr;
 	}
-	
+	/**
+	 * returns the current line the robot is operating on. line id is given in the order given by the .setMap method
+	 * @return the current line id
+	 */
 	public int getLineID() {
 		return this.currentLine.id;
 	}
-	
+	/**
+	 * checks whether navigation the front sensor is measuring a parking slot in order to identify front position to start parking.
+	 * @return front side sensor's measurement state
+	 */
 	public boolean detectingParkingSlot() {
-		return this.detectingSlotBackSide || this.detectingSlotFrontSide;
+		return this.detectingSlotFrontSide && this.currentLine.id!=5 && this.currentLine.id==3;
 	}
-	
+	/**
+	 * returns the parking slot ID that has been changed recently.
+	 * @return parking slot ID that was changed last. returns -1 if the parking slot database is empty
+	 */
 	public int getLastChangedSlot() {
 		return this.lastSlotChangedID;  
 	}
-	
+	/**
+	 * attempts pose correction of the map with the line follower information
+	 * @param state defines whether the line follower algorithm is active (false - inactive, true - active)
+	 */
 	public void setLineFollowerState(boolean state) {
 		this.lineFollowerActive = state;
 	}
@@ -381,12 +365,6 @@ public class NavigationAT implements INavigation{
 	 * calls the perception methods for obtaining actual measurement data and writes the data into members
 	 */
 	private void updateSensors(){	
-		/*
-		this.lineSensorRight		= perception.getRightLineSensor();
-		this.lineSensorLeft  		= perception.getLeftLineSensor();
-		*/
-		// Achtung, ggf. aendern sich diese Methoden wieder.
-		
 		this.lineSensorRight		= perception.getRightLineSensorValue();
 		this.lineSensorLeft			= perception.getLeftLineSensorValue();
 		
@@ -412,7 +390,8 @@ public class NavigationAT implements INavigation{
 		lastPose.setHeading( pose.getHeading() );
 		
 		Pose poseIncrementalEncoder = calculateLocationIncrementalEncoder();
-		Pose poseMouseSensor		= calculateLocationMouseSensor(); // noch nicht fusioniert
+		Pose poseMouseSensor		= calculateLocationMouseSensor(); // not implemented due to low precision
+		poseMouseSensor.toString();
 		
 		// Fusion Odometriedaten
 		this.pose.setLocation( poseIncrementalEncoder.getLocation() );
@@ -420,8 +399,8 @@ public class NavigationAT implements INavigation{
 		
 		// Korrektur
 		
-		if (this.map != null ) {
-			
+		if (this.map != null ) { // avoid errors as long as the no map set yet
+			// increase absolute deviation given by relative deviation parameter
 			if (currentLine.id%2 == 0) {
 				this.xDeviation += ( Math.abs( lastPose.getX() - poseIncrementalEncoder.getX() ) * RELATIVEDEVIATION_ALONG_ROAD_RADENC );
 				this.yDeviation += ( Math.abs( lastPose.getY() - poseIncrementalEncoder.getY() ) * RELATIVEDEVIATION_NEXTTO_ROAD_RADENC );
@@ -431,23 +410,19 @@ public class NavigationAT implements INavigation{
 				this.yDeviation += ( Math.abs( lastPose.getY() - poseIncrementalEncoder.getY() ) * RELATIVEDEVIATION_ALONG_ROAD_RADENC );
 			}
 			this.angleDeviation += ( Math.abs( lastPose.getHeading() - poseIncrementalEncoder.getHeading() ) * RELATIVEDEVIATION_ANGLE_RADENC );
-			
-			
-			// using back and front sensor
-			
+						
 			double relativeAngle = currentLine.absAngle(pose.getHeading(), currentLine.getAngle());
 			double x			 = pose.getX();
 			double y			 = pose.getY();
 			double xdist, ydist;
 			
-			if ( backSensorDistance!=Double.POSITIVE_INFINITY && false &&
+			if ( backSensorDistance!=Double.POSITIVE_INFINITY &&
 					backSensorDistance != 0 && 
 				relativeAngle < Math.toRadians( 15 ) &&
 				lastBackSensorDistance < backSensorDistance) {
 				
 				switch (this.currentLine.id) {
 				case 0:
-					//x = ( ( -2.5 + Math.cos(relativeAngle) * backSensorDistance ) / 100 + x ) / 2;
 					xdist = ( -2.5 + Math.cos(relativeAngle) * backSensorDistance ) / 100;
 					ydist = y;
 					break;
@@ -484,17 +459,14 @@ public class NavigationAT implements INavigation{
 					}
 				}
 				
-				
-
-				this.pose.setLocation( (float)x, (float)y);
 			}
 			
 			this.lastBackSensorDistance = backSensorDistance; 
 			
 						
-			// add new value and remove oldest value from mean calculation (gleitender Mittelwert)
+			// add new value and remove oldest value from mean calculation
 						
-			if ( Math.max(leftAngleSpeed, rightAngleSpeed) > 0 ) {		// robot is moving
+			if ( Math.max(leftAngleSpeed, rightAngleSpeed) > 0 ) {		// only add when the robot is moving
 				this.leftLineAverage += (float)( lineSensorLeft - this.leftLine [filterID] ) / LENGTH_MOVING_AVERAGE;
 				this.rightLineAverage+= (float)( lineSensorRight- this.rightLine[filterID] ) / LENGTH_MOVING_AVERAGE;
 				
@@ -507,47 +479,50 @@ public class NavigationAT implements INavigation{
 			
 			
 			double angle, error;
-			// maybe these variables are already initialised correctly
+
 			x = pose.getX();
 			y = pose.getY();
 			if ( Math.min(leftLineAverage, rightLineAverage) > 80 && this.lineFollowerActive) {  // Robot is following line
 				if 		( currentLine.getDirection()==Direction.NORTH || currentLine.getDirection()==Direction.SOUTH ) {
 					
-					error = x - currentLine.getConstCoordinate();
+					error = x - currentLine.getConstCoordinate(); // correct x value when moving vertically
+					
 					if ( Math.abs( error ) > DISTANCE_BLACKLINE_LINESENSOR ) { // Robot must be closer than 1 cm to the line
 						if (error > 0) {		x = x - 0.5 * (error - DISTANCE_BLACKLINE_LINESENSOR);	}
-						else if (error < 0) {	x = x - 0.5 * (error + DISTANCE_BLACKLINE_LINESENSOR);	}
-						
-						
-						
-						angle = Math.atan2( y-lastPose.getY(), x-lastPose.getX() ) + 0 * pose.getHeading(); // hart
+						else if (error < 0) {	x = x - 0.5 * (error + DISTANCE_BLACKLINE_LINESENSOR);	}			
 						
 						pose.setLocation( (float) x, (float) y);
-						if ( this.lockAngleCorrection==0 && currentLine.absAngle(angle, pose.getHeading()) < 10 * Math.PI/180 ) {
+
+						angle = Math.atan2( y-lastPose.getY(), x-lastPose.getX() ) + 0 * pose.getHeading();
+												
+						if ( this.lockAngleCorrection==0 && currentLine.absAngle(angle, pose.getHeading()) < 10 * Math.PI/180 ) { // corrects angle slowly
 							this.lockAngleCorrection++;
 							pose.setHeading((float)angle);
 							this.angleDeviation = Math.max(this.angleDeviation- 5* Math.PI/180, 0);
 						}
 					}
-					this.xDeviation = Math.min( this.xDeviation, Math.abs(error));
+					this.xDeviation = Math.min( this.xDeviation, Math.abs(error)); // reduce x error due to known location
 				}
 				
 				else if ( currentLine.getDirection()==Direction.EAST  || currentLine.getDirection()==Direction.WEST ) {
 					
-					error = y - currentLine.getConstCoordinate();
+					error = y - currentLine.getConstCoordinate();  // correct y value when moving horizontally
+					
 					if ( Math.abs( error ) > DISTANCE_BLACKLINE_LINESENSOR ) { // Robot must be closer than 1 cm to the line
 						if (error > 0) {		y = y - 0.5 * (error-DISTANCE_BLACKLINE_LINESENSOR);	}
 						else if (error < 0) {	y = y - 0.5 * (error+DISTANCE_BLACKLINE_LINESENSOR);	}
-						angle = Math.atan2( y-lastPose.getY(), x-lastPose.getX() ) + 0 * pose.getHeading(); // hart, evtl. gefiltert?
 						
 						pose.setLocation( (float) x, (float) y);
-						if ( this.lockAngleCorrection==0 && currentLine.absAngle(angle, pose.getHeading()) < 10 * Math.PI/180 ) {
+
+						angle = Math.atan2( y-lastPose.getY(), x-lastPose.getX() ) + 0 * pose.getHeading(); 
+						
+						if ( this.lockAngleCorrection==0 && currentLine.absAngle(angle, pose.getHeading()) < 10 * Math.PI/180 ) { // corrects angle slowly
 							this.lockAngleCorrection++;
 							pose.setHeading((float)angle);
 							this.angleDeviation = Math.max(this.angleDeviation- 5* Math.PI/180, 0);
 						}
 					}
-					this.yDeviation = Math.min( this.yDeviation, Math.abs(error));
+					this.yDeviation = Math.min( this.yDeviation, Math.abs(error)); // reduce y error due to more known location
 				}
 			}
 			
@@ -563,7 +538,7 @@ public class NavigationAT implements INavigation{
 				
 				this.currentLine = this.currentLine.update( this.pose );
 				
-				if ( previousLineID != currentLine.id ) {
+				if ( previousLineID != currentLine.id ) { // if line is switched, turn off current slot measurements
 					this.detectingSlotBackSide = false;
 					this.detectingSlotFrontSide= false;
 					if ( previousLineID % 2 == 0 ) {  this.yDeviation = Math.min(this.yDeviation, 0.01);  }
@@ -572,7 +547,8 @@ public class NavigationAT implements INavigation{
 			}
 			 
 		}
-		
+		// measure relative angle to walls
+		// only done when robot is not moving
 		if ( this.frontSideSensorDistance!=0 && this.frontSideSensorDistance!=Double.POSITIVE_INFINITY &&
 				this.backSideSensorDistance!=0 && this.backSideSensorDistance!=Double.POSITIVE_INFINITY &&
 				leftAngleSpeed==0 && rightAngleSpeed==0) {
@@ -594,7 +570,7 @@ public class NavigationAT implements INavigation{
 			double angle_by_DistanceSensors = Math.atan(  (this.frontSideSensorDistance - this.backSideSensorDistance) / SIDESENSOR_DISTANCE  ) + offset;
 			
 			if ( currentLine.absAngle( angle_by_DistanceSensors, pose.getHeading()) < 20 * Math.PI/180 ) {
-				this.pose.setHeading( (float) angle_by_DistanceSensors );
+
 				this.angleDeviation = Math.min( this.angleDeviation, Math.atan(1.0 / SIDESENSOR_DISTANCE)); // distance sensors' resolution is 1 cm
 			}
 
@@ -653,9 +629,10 @@ public class NavigationAT implements INavigation{
 	
 	private Pose calculateLocationMouseSensor() {
 		Pose pose = new Pose();
-		double uShift = 0.001 * this.mouseOdoMeasurement.getUSum();
-		double vShift = 0.001 * this.mouseOdoMeasurement.getVSum();
-		double deltaT = 0.001 * this.mouseOdoMeasurement.getDeltaT();
+		double uShift = 0.001 * this.mouseOdoMeasurement.getUSum(); // shift in m
+		double vShift = 0.001 * this.mouseOdoMeasurement.getVSum(); // shift in m
+		double deltaT = this.mouseOdoMeasurement.getDeltaT();
+		deltaT		  = 0.001 * deltaT; // time given in sec
 		
 		double angle  = this.pose.getHeading();
 		
@@ -677,14 +654,14 @@ public class NavigationAT implements INavigation{
 		// measurements of the front side sensor
 		if ( this.detectingSlotFrontSide ) { // back boundary already found
 			if ( this.frontSideSensorDistance != Double.POSITIVE_INFINITY ) { // possible front boundary
-				if ( this.detectionDelayFrontSide==0 ) { // store first occurence of front boundary
+				if ( this.detectionDelayFrontSide==0 ) { // store first occurrence of front boundary
 					this.slotBoundariesFrontSide[0] = calcParkingSlotLocation( this.currentLine );
 					this.slotBoundariesFrontSide[2] = calcParkingSlotBoundaryDeviation();
 					
 					} 
 				this.detectionDelayFrontSide++; // waiting to add front boundary, until following measures ensure front boundary
 				if ( this.detectionDelayFrontSide==DETECTION_DELAY || 
-						( this.currentLine.id==4 && this.pose.getX() < 0.5 + OFFSET_PARKSLOT_FRONTSIDE) ) { // front boundary found
+						( this.currentLine.id==4 && this.pose.getX() < 0.5 + OFFSET_PARKSLOT_FRONTSIDE) ) { // front boundary found + special case on line for without walls
 					this.detectingSlotFrontSide = false;
 					this.detectionDelayFrontSide = 0;
 					newslot = this.currentLine.newParkingSlotSpotted(
@@ -692,16 +669,21 @@ public class NavigationAT implements INavigation{
 							slotBoundariesFrontSide[0], slotBoundariesFrontSide[1],
 							OFFSET_PARKSLOT_FRONTSIDE,
 							slotBoundariesFrontSide[2], slotBoundariesFrontSide[3]);
-					if ( -1== newslot) {
+					
+					switch (newslot) {
+					case -2: // no possible slot
+						break;
+					case -1: // new slot
 						this.lastSlotChangedID = this.parkingSlotIDCounter;
 						this.parkingSlotIDCounter++;
-					}
-					else {
+						break;
+					default: // update for guidance
 						this.lastSlotChangedID = newslot;
-					}
+					}			
+					
 				}
 			}
-			else { this.detectionDelayFrontSide = 0; } // still no front boundary
+			else { this.detectionDelayFrontSide = 0; } // still no front boundary found
 			
 		}
 		else { // looking for back boundary
@@ -734,18 +716,25 @@ public class NavigationAT implements INavigation{
 						( this.currentLine.id==4 && this.pose.getX() < 0.5 + OFFSET_PARKSLOT_BACKSIDE )) {  // front boundary found
 					this.detectingSlotBackSide = false;
 					this.detectionDelayBackSide = 0;
+					this.slotBoundariesFrontSide[2] = Math.min( this.slotBoundariesFrontSide[2], calcParkingSlotBoundaryDeviation() );
+					
 					newslot = this.currentLine.newParkingSlotSpotted(
 							parkingSlotIDCounter,
 							slotBoundariesBackSide[0], slotBoundariesBackSide[1],
 							OFFSET_PARKSLOT_BACKSIDE,
 							slotBoundariesBackSide[2], slotBoundariesBackSide[3]);
-					if ( newslot == -1 ){
+					
+					switch (newslot) {
+					case -2: // no possible slot
+						break;
+					case -1: // new slot
 						this.lastSlotChangedID = this.parkingSlotIDCounter;
 						this.parkingSlotIDCounter++;
-					}
-					else {
+						break;
+					default: // update for guidance
 						this.lastSlotChangedID = newslot;
-					}
+					}		
+					
 				}
 			}
 			else { this.detectionDelayBackSide = 0; }  // still no front boundary
@@ -772,59 +761,30 @@ public class NavigationAT implements INavigation{
 		// special cases on the top line where there is no continuous wall
 		
 		if ( this.currentLine.id==4 ) {
-			this.slotBoundariesBackSide[1]  = Math.min( 1.30 - OFFSET_PARKSLOT_BACKSIDE , this.slotBoundariesBackSide[1]);
-			this.slotBoundariesFrontSide[1] = Math.min( 1.30 - OFFSET_PARKSLOT_FRONTSIDE, this.slotBoundariesBackSide[1]);
+			this.slotBoundariesBackSide[1]  = Math.min( 1.30 + OFFSET_PARKSLOT_BACKSIDE , this.slotBoundariesBackSide[1]);
+			this.slotBoundariesFrontSide[1] = Math.min( 1.30 + OFFSET_PARKSLOT_FRONTSIDE, this.slotBoundariesBackSide[1]);
 			
-			this.slotBoundariesBackSide[0]  = Math.max( 0.50 - OFFSET_PARKSLOT_BACKSIDE , this.slotBoundariesBackSide[0]);
-			this.slotBoundariesFrontSide[0] = Math.max( 0.50 - OFFSET_PARKSLOT_FRONTSIDE, this.slotBoundariesBackSide[0]);
+			if (this.detectingSlotBackSide) {
+				this.slotBoundariesBackSide[3] = Math.min(this.slotBoundariesBackSide[3], this.calcParkingSlotBoundaryDeviation() );
+			}
+			
+			if (this.detectingSlotFrontSide) {
+				this.slotBoundariesFrontSide[3] = Math.min(this.slotBoundariesFrontSide[3], this.calcParkingSlotBoundaryDeviation() );
+			}
+			
+			this.slotBoundariesBackSide[0]  = Math.max( 0.50 + OFFSET_PARKSLOT_BACKSIDE , this.slotBoundariesBackSide[0]);
+			this.slotBoundariesFrontSide[0] = Math.max( 0.50 + OFFSET_PARKSLOT_FRONTSIDE, this.slotBoundariesBackSide[0]);
 		}
 		
 		
 	}
 	
 	// functions
-/*
-	private float calculateAngle(Line line){
-		double x = line.getX2() - line.getX1();
-		double y = line.getY2() - line.getY1();
-		float angle = (float) (Math.atan2(y, x) );
-		return angle;
-	}	
 
-	
-	private Point calcPointOnStraightLine(double x, double y, Line line){
-		Point point = new Point(0, 0);
-		if ( line.getX1()==line.getX2() ) {
-			point.setLocation( line.getX1(), y );
-		}
-		else if ( line.getY1()==line.getY2() ) {
-			point.setLocation( x, line.getY1() );
-		}
-		return point;
-	}
-	
-	private Point calcPointOnStraightLine(Pose pose, Line line){
-		return calcPointOnStraightLine( pose.getX(), pose.getY(), line );
-	}
-	
-	*/
 	private double calcParkingSlotLocation(StraightLine line) {
 		double coordinate = 0;
 		switch ( line.getDirection() ) {
-		/*
-			case NORTH:
-				coordinate = this.pose.getY() + DISTANCE_ROBOTCOURSE_TO_BORDER * Math.tan( this.pose.getHeading() - Math.PI/2 );
-				break;
-			case SOUTH:
-				coordinate = this.pose.getY() - DISTANCE_ROBOTCOURSE_TO_BORDER * Math.tan( this.pose.getHeading() - Math.PI/2 );
-				break;
-			case EAST:
-				coordinate = this.pose.getX() + DISTANCE_ROBOTCOURSE_TO_BORDER * Math.tan( this.pose.getHeading() );
-				break;
-			case WEST:
-				coordinate = this.pose.getX() - DISTANCE_ROBOTCOURSE_TO_BORDER * Math.tan( this.pose.getHeading() );
-				break;
-			*/
+
 		case NORTH:
 			coordinate = this.pose.getY()
 			+ ( DISTANCE_ROBOTCOURSE_TO_BORDER - this.pose.getX() + line.getConstCoordinate() ) * Math.tan( this.pose.getHeading() - Math.PI/2 );
