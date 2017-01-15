@@ -145,10 +145,8 @@ public class ControlRST implements IControl {
 	double tempSpeedLeft = 0;
 	double tempSpeedRight = 0;
 	// ##### ParkIN######
-	double x = 0.0;
-	double w = 0;
-	double velo = 0;
-	double x_back = 0;
+	boolean circle2 = false;
+	boolean circle1 = false;
 	int mutex_out = 0;
 	int mutex_Heading = 0;
 	public boolean parking = false;
@@ -170,8 +168,7 @@ public class ControlRST implements IControl {
 	public boolean drive40 = false;
 	// Testsequenz 2
 	boolean driven70 = false;
-	boolean circle2 = false;
-	boolean circle1 = false;
+	
 	boolean lineReached = false;
 	boolean driven45 = false;
 	boolean finished = false;
@@ -390,7 +387,7 @@ public class ControlRST implements IControl {
 					return;
 
 				}
-				monitor.writeControlComment("TurnToLocation" + degree + desiredHeading);
+		//		monitor.writeControlComment("TurnToLocation" + degree + desiredHeading);
 			}
 		}
 		/*
@@ -426,10 +423,9 @@ public class ControlRST implements IControl {
 				stop();
 				finalDestination = true;
 			}
-			monitor.writeControlComment(
-					"TurnDefinedAngle" + turnDegrees + ":" + ((180 / Math.PI) * (destination.getHeading()) + ":"
+	/*		monitor.writeControlComment("TurnDefinedAngle" + turnDegrees + ":" + ((180 / Math.PI) * (destination.getHeading()) + ":"
 							+ ((180 / Math.PI) * currentPosition.getHeading())));
-
+*/
 		}
 
 	}
@@ -461,10 +457,8 @@ public class ControlRST implements IControl {
 				double kd = calcPos - calculatedPositionBefore;
 				double w = 40 * calcPos + 700 * kd;
 				calculatedPositionBefore = calcPos;
-				xStart = x;
-				yStart = y;
-				monitor.writeControlComment("CooTrans" + " : " + distance + ":" + w + ": " + calcPos + ":" + kd);
-				monitor.writeControlComment("pose" + phi + ":" + currentPosition.getX() + ":" + currentPosition.getY());
+			//	monitor.writeControlComment("CooTrans" + " : " + distance + ":" + w + ": " + calcPos + ":" + kd);
+			//	monitor.writeControlComment("pose" + phi + ":" + currentPosition.getX() + ":" + currentPosition.getY());
 				// driveNEW(0.1, w);
 				drive(9, -w);
 			} else {
@@ -561,11 +555,13 @@ public class ControlRST implements IControl {
 
 	}
 
+	/**Function to stop the left and right motor */
 	private void stop() {
 		this.leftMotor.stop();
 		this.rightMotor.stop();
 	}
-
+	
+	/**This function is needed to reset all counters from the incrementalgeber */
 	private void resetAdd() {
 		addL = 0;
 		addR = 0;
@@ -683,6 +679,7 @@ public class ControlRST implements IControl {
 				+ errorL + ":" + lsum + ":" + rsum + ":" + timeL);
 	}
 
+	/**This function will move the robot from his parking slot to the black line again */
 	public void ParkOut() {
 		update_SETPOSE_Parameter();
 		if (mutex_Heading == 0) {
@@ -716,6 +713,8 @@ public class ControlRST implements IControl {
 		}
 	}
 
+	
+	/** This function will park the robot into a parking slot while driving a part of a circle for 2 times*/ 
 	public void ParkBackwords() {
 		//	update_SETPOSE_Parameter();
 		
@@ -760,7 +759,7 @@ public class ControlRST implements IControl {
 		return;
 
 	}
-
+/** The required testsequence 1 for the final presentation*/
 	private void testSequenz1() {
 		Point start = new Point(0.2f, 0.0f);
 
@@ -874,7 +873,7 @@ public class ControlRST implements IControl {
 
 	}
 
-
+	/** The required testsequence 2 for the final presentation*/
 	private void Testsequenz2() {
 		Point start = new Point(0.2f, 0.0f);
 
