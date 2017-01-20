@@ -1,6 +1,7 @@
 package parkingRobot.hsamr10;
 
 import lejos.robotics.navigation.Pose;
+
 import parkingRobot.IControl;
 import parkingRobot.IMonitor;
 import parkingRobot.IPerception;
@@ -85,7 +86,7 @@ public class ControlRST implements IControl {
 	int pdline = 0;
 	int ksline = 0;
 	int offset = 0;
-	double line_distance =0;
+	double line_distance = 0;
 	// #### drive ###########################################################
 	double Kp = 0; // 0.
 	double Ki = 0;
@@ -168,11 +169,12 @@ public class ControlRST implements IControl {
 	public boolean drive40 = false;
 	// Testsequenz 2
 	boolean driven70 = false;
-	
+
 	boolean lineReached = false;
 	boolean driven45 = false;
 	boolean finished = false;
 	boolean seccondParking = false;
+
 	/**
 	 * provides the reference transfer so that the class knows its corresponding
 	 * navigation object (to obtain the current position of the car from) and
@@ -297,9 +299,11 @@ public class ControlRST implements IControl {
 			update_SETPOSE_Parameter();
 			update_LINECTRL_Parameter();
 			setBackwords(false);
-			exec_LINECTRL_ALGO();
-	//Testsequenz2();
-	//	testSequenz1();
+		//	ParkBackwords();
+
+		 exec_LINECTRL_ALGO();
+		//	Testsequenz2();
+			// testSequenz1();
 
 			break;
 		case VW_CTRL:
@@ -387,7 +391,8 @@ public class ControlRST implements IControl {
 					return;
 
 				}
-		//		monitor.writeControlComment("TurnToLocation" + degree + desiredHeading);
+				// monitor.writeControlComment("TurnToLocation" + degree +
+				// desiredHeading);
 			}
 		}
 		/*
@@ -421,6 +426,7 @@ public class ControlRST implements IControl {
 				drive(0, -30);
 			} else {
 				stop();
+				radsummeL=0;
 				finalDestination = true;
 			}
 	/*		monitor.writeControlComment("TurnDefinedAngle" + turnDegrees + ":" + ((180 / Math.PI) * (destination.getHeading()) + ":"
@@ -428,10 +434,15 @@ public class ControlRST implements IControl {
 */
 		}
 
-	}
-	
-		/**Main function to drive to a desired Position and get a desired Heading there */ 
-		private void exec_SETPOSE_ALGO() {
+}
+
+
+
+	/**
+	 * Main function to drive to a desired Position and get a desired Heading
+	 * there
+	 */
+	private void exec_SETPOSE_ALGO() {
 		monitor.writeControlComment("setPose");
 		if (mutexSetPose == 0) {
 			destination.setLocation(1.8f, 0.6f);
@@ -457,8 +468,10 @@ public class ControlRST implements IControl {
 				double kd = calcPos - calculatedPositionBefore;
 				double w = 40 * calcPos + 700 * kd;
 				calculatedPositionBefore = calcPos;
-			//	monitor.writeControlComment("CooTrans" + " : " + distance + ":" + w + ": " + calcPos + ":" + kd);
-			//	monitor.writeControlComment("pose" + phi + ":" + currentPosition.getX() + ":" + currentPosition.getY());
+				// monitor.writeControlComment("CooTrans" + " : " + distance +
+				// ":" + w + ": " + calcPos + ":" + kd);
+				// monitor.writeControlComment("pose" + phi + ":" +
+				// currentPosition.getX() + ":" + currentPosition.getY());
 				// driveNEW(0.1, w);
 				drive(9, -w);
 			} else {
@@ -493,11 +506,11 @@ public class ControlRST implements IControl {
 	}
 
 	private void exec_INACTIVE() {
-	this.stop();
+		this.stop();
 	}
 
 	/**
-	* Driving along a black Line with the help of lightsensors and a PD-control 
+	 * Driving along a black Line with the help of lightsensors and a PD-control
 	 */
 
 	private void exec_LINECTRL_ALGO() {
@@ -538,43 +551,50 @@ public class ControlRST implements IControl {
 				rightMotor.setPower(start - ksline);// - speed);
 				leftMotor.setPower(start + ksline);
 				lastErrorL = differenceErrorL;
-				
+
 			} else {
 				start = offset + ((perception.getLSlwhiteValue() + perception.getLSlblackValue()) / 2
 						- (perception.getRightRough() + perception.getLeftRough()) / 2);
 				rightMotor.setPower(start + (ksline / 2));// - speed);
 				leftMotor.setPower(start - (ksline / 2));
 				lastErrorL = differenceErrorL;
-				
+
 			}
 			AngleDifferenceMeasurement admL = encoderLeft.getEncoderMeasurement();
+			AngleDifferenceMeasurement admR = encoderRight.getEncoderMeasurement();
+			
 			line_distance = line_distance + admL.getAngleSum();
+			double garbage = admR.getAngleSum();
 			monitor.writeControlComment("PIDL1" + ksline + "start" + start);
 
 		}
 
 	}
 
-	/**Function to stop the left and right motor */
+	/** Function to stop the left and right motor */
 	private void stop() {
 		this.leftMotor.stop();
 		this.rightMotor.stop();
 	}
-	
-	/**This function is needed to reset all counters from the incrementalgeber */
+
+	/**
+	 * This function is needed to reset all counters from the incrementalgeber
+	 */
 	private void resetAdd() {
 		addL = 0;
 		addR = 0;
 		radsummeL = 0;
 	}
+
 	/**
 	 * calculates the left and right angle speed of the both motors with given
-	 * velocity and angle velocity of the robot
-	 * function to handle all avoidings/changes of driving direction if winkel
-	 * == 0, the car will drive Straight on with a given velocity if velocity ==
-	 * 0 the car will turn on his place while it is interrupted from another
-	 * function if winkel > 0 left turn if winkel < 0 right turn if winkel &&
-	 * velocity != 0 the car will rotate in a calculated radius
+	 * velocity and angle velocity of the robot function to handle all
+	 * avoidings/changes of driving direction if winkel == 0, the car will drive
+	 * Straight on with a given velocity if velocity == 0 the car will turn on
+	 * his place while it is interrupted from another function if winkel > 0
+	 * left turn if winkel < 0 right turn if winkel && velocity != 0 the car
+	 * will rotate in a calculated radius
+	 * 
 	 * @param v
 	 *            velocity of the robot
 	 * @param omega
@@ -606,15 +626,17 @@ public class ControlRST implements IControl {
 			powerL = ((1.4 * (velocityL)) - 11.94D);
 		}
 		if (velocityR > 0) {
-			powerR = ((2.125 * (velocityR)) +6D);
+			powerR = ((2.125 * (velocityR)) + 6D);
 		} else {
 			powerR = ((1.4 * (velocityR)) - 11.94D);
 
 		}
 		double timeL = admL.getDeltaT();
 		double timeR = admL.getDeltaT();
+
 		double lsum = admL.getAngleSum();
 		double rsum = admR.getAngleSum();
+
 		radsummeL = radsummeL + lsum;
 		// ###### 3. Schritt PID Regelung dazuaddieren ####//
 		if (timeL != 0 && timeR != 0) {
@@ -647,7 +669,7 @@ public class ControlRST implements IControl {
 
 				double kd_l = 1.5;// 0.2;// 2;
 				double kd_r = 1.5;// 0.2;// 2;
-				
+
 				pidL = kp_l * errorL + ki_l * integralL + kd_l * differenceL;
 				pidR = kp_r * errorR + ki_r * integralR + kd_r * differenceL;
 
@@ -679,45 +701,56 @@ public class ControlRST implements IControl {
 				+ errorL + ":" + lsum + ":" + rsum + ":" + timeL);
 	}
 
-	/**This function will move the robot from his parking slot to the black line again */
+	/**
+	 * This function will move the robot from his parking slot to the black line
+	 * again
+	 */
 	public void ParkOut() {
 		update_SETPOSE_Parameter();
 		if (mutex_Heading == 0) {
-			destination.setHeading(currentPosition.getHeading() + (float) Math.PI / 2);
+			destination.setHeading(currentPosition.getHeading() + (float) (Math.PI / 2 + 0.1));
 			mutex_Heading = 1;
+			resetIntegral();
 		}
 		monitor.writeControlComment("circle" + currentPosition.getHeading() + ":" + destination.getHeading());
 
 		if (circle1 == false) {
 			if (currentPosition.getHeading() < destination.getHeading()) {
-				drive(5, 23);
+				drive(6, 22);
 			} else {
 				circle1 = true;
-				//stop();
+				resetIntegral();
 			}
 		}
 
 		if (circle1 == true) {
 			if (currentPosition.getHeading() > destination.getHeading() - (float) (Math.PI / 2 - 0.1)) {
-				drive(5, -22);
+				drive(6, -22);
 			} else {
-			mutex_Heading = 0;
-			circle2 = false; // to enable parking in
-			succesfullyParkedOut = true;
-			succesfullyParkedIn = false;
-			parking = false;
-			setCtrlMode(IControl.ControlMode.INACTIVE);
-			//stop();
+				mutex_Heading = 0;
+				circle2 = false; // to enable parking in
+				succesfullyParkedOut = true;
+				succesfullyParkedIn = false;
+				parking = false;
+				// setCtrlMode(IControl.ControlMode.INACTIVE);
+				resetIntegral();
+				// stop();
 			}
 
 		}
 	}
 
-	
-	/** This function will park the robot into a parking slot while driving a part of a circle for 2 times*/ 
+	public void resetIntegral() {
+		integralL = 0;
+		integralR = 0;
+	}
+
+	/**
+	 * This function will park the robot into a parking slot while driving a
+	 * part of a circle for 2 times
+	 */
 	public void ParkBackwords() {
-		//	update_SETPOSE_Parameter();
-		
+		update_SETPOSE_Parameter();
 		if (mutex_Heading == 0) {
 			destination.setHeading(currentPosition.getHeading() + (float) (Math.PI / 2 - 0.1));
 			mutex_Heading = 1;
@@ -726,27 +759,30 @@ public class ControlRST implements IControl {
 
 		if (circle2 == false) {
 			if (currentPosition.getHeading() < destination.getHeading()) {
-				drive(-5, 23);
+				drive(-6, 22);
 			} else {
 				circle2 = true;
-			//	stop();
+				resetIntegral();
+
 			}
 		}
 
 		if (circle2 == true) {
-			if (currentPosition.getHeading() > destination.getHeading() - (float) (Math.PI / 2 -0.1)) {
-				drive(-5, -22);
+			if (currentPosition.getHeading() > destination.getHeading() - (float) (Math.PI / 2) + 0.1) {
+				drive(-6, -22);
 			} else {
-			//	stop();
+				// stop();
 				succesfullyParkedIn = true;
 				succesfullyParkedOut = false;
 				parking = true;
 				mutex_Heading = 0;
 				circle1 = false; // to enable parkout
-				setCtrlMode(IControl.ControlMode.INACTIVE);
+				resetIntegral();
+				// setCtrlMode(IControl.ControlMode.INACTIVE);
 			}
 		}
-		monitor.writeControlComment("backpark" + parking);	}
+		monitor.writeControlComment("backpark" + parking);
+	}
 
 	private void turn90(float heading, double w) {
 		if (currentPosition.getHeading() < (heading + Math.PI / 2 - 0.2)) {
@@ -759,7 +795,8 @@ public class ControlRST implements IControl {
 		return;
 
 	}
-/** The required testsequence 1 for the final presentation*/
+
+	/** The required testsequence 1 for the final presentation */
 	private void testSequenz1() {
 		Point start = new Point(0.2f, 0.0f);
 
@@ -842,7 +879,10 @@ public class ControlRST implements IControl {
 		if (finalDestination && !seccondStart) {
 			setBackwords(false);
 			exec_LINECTRL_ALGO();
-			if (currentPosition.distanceTo(start) < 0.1) {
+			double dist = currentPosition.distanceTo(start);
+			LCD.clear();
+			LCD.drawString("Dist:" + dist, 0, 0);
+			if (dist < 0.2) {
 				seccondStart = true;
 				finalDestination = false;
 				destination.setHeading(currentPosition.getHeading() + (float) (Math.PI));
@@ -870,22 +910,25 @@ public class ControlRST implements IControl {
 		if (drive40 && !parking) {
 			ParkBackwords();
 		}
+		if(drive40&&parking){
+			stop();
+		}
 
 	}
 
-	/** The required testsequence 2 for the final presentation*/
+	/** The required testsequence 2 for the final presentation */
 	private void Testsequenz2() {
 		Point start = new Point(0.2f, 0.0f);
 
 		if (!driven70) {
-			Double way = (radsummeL / 360D) * 17.59D;
+			Double way = (line_distance / 360D) * 17.59D;
 			if ((way) > 65) {
 				driven70 = true;
 			//	stop();
 			} else {
-		//		setBackwords(false);
-		//		exec_LINECTRL_ALGO();
-			drive(10,0);
+		setBackwords(false);
+		exec_LINECTRL_ALGO();
+			//drive(10,0);
 			}
 			monitor.writeControlComment("Distance" + ":" + way);
 		}
@@ -910,6 +953,7 @@ public class ControlRST implements IControl {
 				lineReached = true;
 				resetAdd();
 				mutex_Heading = 0;
+				line_distance=0;
 				stop();
 				
 			}
@@ -919,7 +963,7 @@ public class ControlRST implements IControl {
 			turnDefinedAngle();
 		}
 		if( lineReached && finalDestination && !driven45){
-			double strecke = (radsummeL / 360D) * 17.59D;
+			double strecke = (line_distance / 360D) * 17.59D;
 			if(strecke > 40){
 				driven45 =true;
 				seccondParking = true;
@@ -927,8 +971,9 @@ public class ControlRST implements IControl {
 				stop();
 			}
 			else {
-				drive (5,0);
-			}
+				setBackwords(false);
+				exec_LINECTRL_ALGO();
+				}
 		}
 		
 		 if (driven45 && !succesfullyParkedIn && !finished && parking)  {
@@ -950,7 +995,7 @@ public class ControlRST implements IControl {
 			setBackwords(false);
 			exec_LINECTRL_ALGO();
 		}}
-		
-	} 
+
+	}
 
 }
