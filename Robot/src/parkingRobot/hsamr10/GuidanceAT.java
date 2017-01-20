@@ -161,7 +161,10 @@ public class GuidanceAT {
 	static int  heading6=180;
 	static Line line7 = new Line(  0, 60,   0,  0);
 	static int  heading7=270;
-	
+	static int slotHeading =0;
+
+      static 	int lastid=0;
+
 	
 	static Point  origin=new Point(0.0f,0.0f) ;
     static Point  destination=new Point(0f,0f) ;
@@ -199,7 +202,7 @@ public class GuidanceAT {
 		ControlRST    control    = new ControlRST(perception, navigation, leftMotor, rightMotor, monitor);
 		INxtHmi  	hmi        = new HmiPLT(perception, navigation, control, monitor);
 		navigation.setMap(map);
-		monitor.startLogging();
+		//monitor.startLogging();
 		
 		
 		/** Defined Variables */
@@ -215,7 +218,6 @@ public class GuidanceAT {
 		
 		int currentHeading=0;
         int x;
-		
         /** Booleans */
         
 		/**The booleans defined here are used for transistioning to the suitable sub-state 
@@ -289,7 +291,7 @@ public class GuidanceAT {
 			 */
 			collisionDetected = perception.getFrontSensorDistance()<CollisionThreshod ? true : false;
 		    foundPotentialSlot = navigation.detectingParkingSlot() ? true : false;
-		    
+			//foundPotentialSlot=perception.getFrontSensorDistance()==perception. ? true : false;
 		    /**
 		     * if the robot is within the defined from the distination , this variable is set to true
 		     * the defined distance of 0.1177157 was determined experimentally to allow for a safer parking manoever
@@ -301,7 +303,7 @@ public class GuidanceAT {
 			 * Implementation : if the current line is 0 , then the mustHeading is 0 , if current line is 1 then must heading 90 and so on 
 			 * x is the line number on which the robot is currently driving
 			 */
-			
+			lastid=navigation.getLastChangedSlot();
 	
 			x=navigation.getLineID();
 			currentHeading=x==0?heading0:x==1?heading1:x==2?heading2:x==3?heading3:x==4?heading4:x==5?heading5:x==6?heading6:heading7;
@@ -322,7 +324,6 @@ public class GuidanceAT {
 		//    goToParked = gotTabletInput == parkingRobot.INxtHmi.Mode. ? true : false;
 		    goToParknow = gotTabletInput == parkingRobot.INxtHmi.Mode.PARK_NOW ? true : false;
 		    goToParkthis = gotTabletInput == parkingRobot.INxtHmi.Mode.PARK_THIS? true : false;
-
 			        if( gotTabletInput == parkingRobot.INxtHmi.Mode.PAUSE ){
 						gotStatus = CurrentStatus.INACTIVE;	
 			     	    }else if (gotTabletInput == parkingRobot.INxtHmi.Mode.DISCONNECT){
@@ -368,6 +369,8 @@ public class GuidanceAT {
         			/**
         			 * Activates the forward line following
         			 */
+                	navigation.setLineFollowerState(true);
+
 					control.setBackwords(false);
 					control.setCtrlMode(ControlMode.LINE_CTRL);
 					/**
@@ -394,6 +397,9 @@ public class GuidanceAT {
                 if ( Button.ENTER.isDown() ){
 					currentStatus = CurrentStatus.INACTIVE;
 					while(Button.ENTER.isDown()){Thread.sleep(1);} //wait for button release
+                }else if ( Button.LEFT.isDown() ){
+					currentStatus = CurrentStatus.PARKNOW;
+					while(Button.ENTER.isDown()){Thread.sleep(1);} //wait for button release
 				}else if ( Button.ESCAPE.isDown() ){
 					currentStatus = CurrentStatus.EXIT;
 					while(Button.ESCAPE.isDown()){Thread.sleep(1);} //wait for button release
@@ -401,6 +407,8 @@ public class GuidanceAT {
 				else if (goToExit||goToInactive||goToScout||goToParkthis){
 					currentStatus = gotStatus;
                 }
+				else if (terminatedParking) // the robot finished parking succsessfully
+					currentStatus=CurrentStatus.PARKED;
                 
                 
 //Susbtate Transition check
@@ -412,7 +420,7 @@ public class GuidanceAT {
                 if (collisionDetected){
 					currentActivity=CurrentActivity.AVOIDINGCOLLISION; 
 				}
-			    
+               
 			   /**
 			    * If the robot just measured a suitable parking slot this  variable is set to true (in measuring substate ) and the robot goes 
 			    * to parking susbtate 
@@ -429,6 +437,8 @@ public class GuidanceAT {
 			    else if ( foundPotentialSlot){
 					currentActivity=CurrentActivity.MEASURING;
 				}
+                
+                
 		
 //Leave action
 			    else if ( currentStatus != CurrentStatus.PARKNOW ){
@@ -443,6 +453,8 @@ public class GuidanceAT {
 //Into action 
         		if ( lastStatus != CurrentStatus.PARKED )
 				{
+                	navigation.setLineFollowerState(false);
+
         			
                 }
 //while action        		
@@ -453,7 +465,7 @@ public class GuidanceAT {
         		
         		if (successfullyParkedOut)
         			{
-        				currentStatus=CurrentStatus.SCOUT;
+        			currentStatus=CurrentStatus.SCOUT;
         			}
         		
         	
@@ -484,6 +496,8 @@ public class GuidanceAT {
 						control.setCtrlMode(ControlMode.LINE_CTRL);
                         CollisionThreshod=7;
 						navigation.setDetectionState(true);
+	                	navigation.setLineFollowerState(true);
+
 					}
 					
 // While action				
@@ -527,6 +541,8 @@ public class GuidanceAT {
 //Into action
 					if ( lastStatus != CurrentStatus.INACTIVE ){
 						control.setCtrlMode(ControlMode.INACTIVE);
+	                	navigation.setLineFollowerState(false);
+
 						
 					}
 					
@@ -572,13 +588,17 @@ public class GuidanceAT {
 		        		
 						if ( lastStatus != CurrentStatus.PARKTHIS || lastActivity !=CurrentActivity.NOSUBSTATE )
 						{
+							
 							control.setBackwords(false);
 							control.setCtrlMode(ControlMode.LINE_CTRL);
+		                	navigation.setLineFollowerState(true);
+
 		                    CollisionThreshod=7;
 							navigation.setDetectionState(false);
 							destination=Array[hmi.getSelectedParkingSlot()].getFrontBoundaryPosition(); // cm
 		        			destinationm.x=(float) (destination.getX()/100);
 		        			destinationm.y=(float) (destination.getY()/100);
+		        			reacheddestination=false;
 
 			            }
 //While action				
@@ -608,10 +628,10 @@ public class GuidanceAT {
 						else if (goToExit||goToInactive||goToParknow||goToScout){
 							currentStatus=gotStatus;
 				     	}
-						else if(terminatedParking)
-					    {
-					    	currentStatus=CurrentStatus.PARKED;
-					    }
+						
+						else if (terminatedParking) // the robot finished parking succsessfully
+							currentStatus=CurrentStatus.PARKED;
+		                
 						
 						
 // Activity Launcher
@@ -653,9 +673,16 @@ break;
 //Into action  
                 if (lastActivity!=currentActivity)
                 {
+                navigation.setLineFollowerState(false);
                 terminatedParking=false;
         		lastActivity=currentActivity;
+			    control.destination.setHeading( (float) (slotHeading*Math.PI/180));
+          /* while (navigation.getPose().getHeading()!=slotHeading*Math.PI/180)
+			      {
+				  control.turnDefinedAngle();
+		          }*/
         		}
+        		
   		
 //While action        		 
                 
@@ -666,17 +693,17 @@ break;
                  *once finished it drives backwards till the end of the backboundary of the slot
                  */
                 
-                if (navigation.getPose().getHeading()!=currentHeading*Math.PI/180)
+           /*     if (navigation.getPose().getHeading()!=currentHeading*Math.PI/180)
 			      {
 				  control.destination.setHeading( (float) (currentHeading*Math.PI/180));
 				  control.turnDefinedAngle();
-		          }
-                else  if      (navigation.getPose().distanceTo(origin)<0.1175){
+		          }*/
+                else  if (navigation.getPose().distanceTo(origin)<0.0875){
         	    	    control.drive(-5, 0); }
-        		else if (navigation.getPose().distanceTo(origin)>0.1175){
+        		else if (navigation.getPose().distanceTo(origin)>0.0875){
           				control.setCtrlMode(ControlMode.PARK_CTRL);}
-				else if (successfullyParkedIn) 
-		        {
+				 if (successfullyParkedIn) 
+		        {control.setCtrlMode(ControlMode.INACTIVE);
 				         if( perception.getBackSensorDistance()>2)  
         			     {
         				 control.drive(-5, 0);
@@ -719,12 +746,23 @@ break;
                    //Leave Action 
     		else  if (  !navigation.detectingParkingSlot() ) {
    			
-    		    origin.setLocation(navigation.getPose().getX(), navigation.getPose().getY());;
+    		   origin.setLocation(navigation.getPose().getX(), navigation.getPose().getY());;
+    		   
+    		   Array= navigation.getParkingSlots();
     	
-    		   if (Array.length!=0){lastIsSuitable = Array[navigation.getLastChangedSlot()].getStatus()==ParkingSlotStatus.SUITABLE_FOR_PARKING ? true : false;}
+    		//   if (Array.length!=0){  lastIsSuitable = Array[Array.length-1].getStatus()==ParkingSlotStatus.SUITABLE_FOR_PARKING ? true : false;}
 		           // lastIsSuitable = Array[Array.length-1].getStatus()==ParkingSlotStatus.SUITABLE_FOR_PARKING ? true : false;
-                if (lastIsSuitable) {lejos.nxt.Sound.beepSequence();
+    		   if (Array.length!=0 && navigation.getLastChangedSlot()<=Array.length) { lastIsSuitable = Array[navigation.getLastChangedSlot()].getStatus()==ParkingSlotStatus.SUITABLE_FOR_PARKING ? true : false;}
+                if (lastIsSuitable) {lejos.nxt.Sound.twoBeeps();
+
+               
+                
+                
                 }
+    			slotHeading=currentHeading;
+
+          		//currentStatus=CurrentStatus.INACTIVE;
+
           		currentActivity=CurrentActivity.NOSUBSTATE;
                 }
 
@@ -744,6 +782,7 @@ break;
           		 */
 // Into action
         		if (lastActivity!=currentActivity){
+
         			control.setCtrlMode(ControlMode.INACTIVE);
     				lastActivity=currentActivity;
         			}
@@ -756,11 +795,14 @@ break;
                 if (perception.getFrontSensorDistance()>=2 && perception.getFrontSensorDistance()<CollisionThreshod){
              		control.setCtrlMode(ControlMode.INACTIVE);
              	}
-            	
-             	else if ((perception.getFrontSensorDistance()<2)&&(perception.getBackSensorDistance()>5)) {  
+            
+                
+             	else if (perception.getFrontSensorDistance()<2) {  
+             		
              	// The Collision is approaching : step backwards
-             	control.drive(-5,0);
-          	
+             if (perception.getBackSensorDistance()>3){
+             		control.drive(-5,0);
+             }
              	}
             	 
              	else {            
@@ -772,6 +814,7 @@ break;
 //Leave action
                 if (currentActivity!=CurrentActivity.AVOIDINGCOLLISION)
                 {
+
                 }
                 
 				break;
@@ -783,6 +826,8 @@ break;
 					
 //Into action
 					{
+	        			lastActivity=currentActivity;
+
 					}
 //while action  
 					{
@@ -798,6 +843,7 @@ break;
 				if (lastActivity!=currentActivity){
 					lastActivity=currentActivity;
 					control.setCtrlMode(ControlMode.LINE_CTRL);
+					navigation.setLineFollowerState(true);
 					}
 //while action
 				{
@@ -818,6 +864,8 @@ break;
 	        		if (lastActivity!=currentActivity)
 	        		{
 	        			lastActivity=currentActivity;
+	                	navigation.setLineFollowerState(false);
+
 	        		}
 //while action
 	        		{
@@ -834,6 +882,8 @@ break;
 					if (lastActivity!=CurrentActivity.PARKINGOUT)
 	        		{
 						currentStatus=CurrentStatus.SCOUT;
+	                	navigation.setLineFollowerState(true);
+
 	        		}
 					
 			    	default:
@@ -864,7 +914,10 @@ break;
         LCD.drawString("STATE: "+currentStatus, 0, 0);
 		LCD.drawString("SUBSTATE: "+currentActivity, 0, 1);
         LCD.drawString("DfroBO: "+navigation.getPose().distanceTo(origin), 0, 4);	
-        LCD.drawString("dtoorigin: "+navigation.getPose().distanceTo(destination), 0, 5);	
+    //    LCD.drawString("dtoorigin: "+navigation.getPose().distanceTo(destination), 0, 5);	
+           LCD.drawString("slotH: "+slotHeading, 0, 5);	
+           LCD.drawString("lastID: "+lastid, 0, 6);	
+
 
 	}
 }
