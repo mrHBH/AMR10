@@ -196,7 +196,7 @@ public class NavigationAT implements INavigation{
 	 * the corresponding slot is deleted afterwards.
 	 */
 	private int parkingSlotIDCounter			= 0;
-	private int lastSlotChangedID				= -1;
+    static	private int lastSlotChangedID				= -1;
 	/**
 	 * back side sensor's position relative to the robot's wheel axis
 	 */
@@ -341,7 +341,8 @@ public class NavigationAT implements INavigation{
 	 * @return front side sensor's measurement state
 	 */
 	public boolean detectingParkingSlot() {
-		return this.detectingSlotFrontSide && this.currentLine.id!=5 && this.currentLine.id==3;
+		return this.detectingSlotFrontSide && this.currentLine.id!=5 && this.currentLine.id!=3;
+				
 	}
 	/**
 	 * returns the parking slot ID that has been changed recently.
