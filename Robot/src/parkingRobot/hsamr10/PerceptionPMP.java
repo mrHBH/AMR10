@@ -272,7 +272,7 @@ public class PerceptionPMP implements IPerception {
 		else
 			this.FrontSensorDistance = Double.POSITIVE_INFINITY;
 		
-		if(frontSideSensorValue <= 30.0){
+		if(frontSideSensorValue <= 20.0){
 			if(frontSideSensorValue >= 4)
 				frontSideSensorValue -= 4;
 			else
@@ -283,7 +283,7 @@ public class PerceptionPMP implements IPerception {
 		else
 			this.FrontSideSensorDistance = Double.POSITIVE_INFINITY;
 		
-		if(backSensorValue <= 30.0){
+		if(backSensorValue <= 20.0){
 			if(backSensorValue >= 4)
 				backSensorValue -= 4;
 			else
@@ -293,7 +293,7 @@ public class PerceptionPMP implements IPerception {
 		else
 			this.BackSensorDistance = Double.POSITIVE_INFINITY;
 		
-		if(backSideSensorValue <= 30.0){
+		if(backSideSensorValue <= 20.0){
 			if(backSideSensorValue >= 4)
 				backSideSensorValue -= 4;
 			else

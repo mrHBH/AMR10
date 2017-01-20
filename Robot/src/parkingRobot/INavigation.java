@@ -207,5 +207,8 @@ public interface INavigation {
 			return measurementQuality;
 		}
 
-	}	
+	}
+
+
+	
 }

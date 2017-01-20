@@ -33,7 +33,7 @@ int TriAPin = 2;
 
 int pixeldata[676];                           //speichert den Wert eines jeden Pixels
 int c = 0;                                // Counter variable for coordinate reporting
-int mode =99;                              //Modus-variable:
+int mode =2;                              //Modus-variable:
                                           //99-> sende kontinuierlich die x&y-Position und surface quality
                                           //1-> sende einmalig das Kamerabild
                                           //2-> sende kontinuierlich die Spannung an Analog0 in V
