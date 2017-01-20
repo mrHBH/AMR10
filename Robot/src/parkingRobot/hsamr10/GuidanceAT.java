@@ -370,7 +370,7 @@ public class GuidanceAT {
         			 * Activates the forward line following
         			 */
                 	navigation.setLineFollowerState(true);
-
+                    lastIsSuitable=false;
 					control.setBackwords(false);
 					control.setCtrlMode(ControlMode.LINE_CTRL);
 					/**
@@ -378,6 +378,7 @@ public class GuidanceAT {
 					 * was experimentally determined to suit the geometry of the map
 					 */
                     CollisionThreshod=7;
+                    terminatedParking=false;
                     /**
                      * Activates detection of Parking slots
                      */
@@ -454,8 +455,9 @@ public class GuidanceAT {
         		if ( lastStatus != CurrentStatus.PARKED )
 				{
                 	navigation.setLineFollowerState(false);
+                	successfullyParkedOut=false;
+                	lastStatus=currentStatus;
 
-        			
                 }
 //while action        		
         		{
@@ -586,9 +588,10 @@ public class GuidanceAT {
 				case PARKTHIS:
  //Into action
 		        		
-						if ( lastStatus != CurrentStatus.PARKTHIS || lastActivity !=CurrentActivity.NOSUBSTATE )
+						if ( lastStatus != CurrentStatus.PARKTHIS  )
 						{
-							
+							lastStatus = currentStatus;
+
 							control.setBackwords(false);
 							control.setCtrlMode(ControlMode.LINE_CTRL);
 		                	navigation.setLineFollowerState(true);
@@ -599,6 +602,7 @@ public class GuidanceAT {
 		        			destinationm.x=(float) (destination.getX()/100);
 		        			destinationm.y=(float) (destination.getY()/100);
 		        			reacheddestination=false;
+		        			terminatedParking=false;
 
 			            }
 //While action				
@@ -609,28 +613,22 @@ public class GuidanceAT {
 						
 //State transition check
 						
-						lastStatus = currentStatus;
-						if ( hmi.getMode() == parkingRobot.INxtHmi.Mode.PAUSE ){
-							currentStatus = CurrentStatus.INACTIVE;}
-					    else if ( hmi.getMode() == parkingRobot.INxtHmi.Mode.PARK_NOW ){
-								currentStatus = CurrentStatus.PARKNOW;}
-						else if ( hmi.getMode() == parkingRobot.INxtHmi.Mode.SCOUT ){
-									currentStatus = CurrentStatus.SCOUT;
-						}else if ( Button.ENTER.isDown() ){
+					
+					    if ( Button.ENTER.isDown() ){
 							currentStatus = CurrentStatus.INACTIVE;
 							while(Button.ENTER.isDown()){Thread.sleep(1);} //wait for button release
 						}else if ( Button.ESCAPE.isDown() ){
 							currentStatus = CurrentStatus.EXIT;
-							while(Button.ESCAPE.isDown()){Thread.sleep(1);} //wait for button release
-						}else if (hmi.getMode() == parkingRobot.INxtHmi.Mode.DISCONNECT){
-							currentStatus = CurrentStatus.EXIT;
-						}
-						else if (goToExit||goToInactive||goToParknow||goToScout){
+							while(Button.ESCAPE.isDown()){Thread.sleep(1);}
+							//wait for button release
+						
+						}else if (goToExit||goToInactive||goToParknow||goToScout){
 							currentStatus=gotStatus;
 				     	}
 						
 						else if (terminatedParking) // the robot finished parking succsessfully
 							currentStatus=CurrentStatus.PARKED;
+					    
 		                
 						
 						
@@ -642,6 +640,7 @@ public class GuidanceAT {
 					    {
 							currentActivity=CurrentActivity.PARKING; 
                         }
+						
 					   
 						
 						 
@@ -698,9 +697,9 @@ break;
 				  control.destination.setHeading( (float) (currentHeading*Math.PI/180));
 				  control.turnDefinedAngle();
 		          }*/
-                else  if (navigation.getPose().distanceTo(origin)<0.0875){
+                else  if (navigation.getPose().distanceTo(origin)<0.0475){
         	    	    control.drive(-5, 0); }
-        		else if (navigation.getPose().distanceTo(origin)>0.0875){
+        		else if (navigation.getPose().distanceTo(origin)>0.0475){
           				control.setCtrlMode(ControlMode.PARK_CTRL);}
 				 if (successfullyParkedIn) 
 		        {control.setCtrlMode(ControlMode.INACTIVE);
