@@ -174,6 +174,8 @@ public class ControlRST implements IControl {
 	boolean driven45 = false;
 	boolean finished = false;
 	boolean seccondParking = false;
+	boolean seq1 = false;
+	boolean seq2= false;
 
 	/**
 	 * provides the reference transfer so that the class knows its corresponding
@@ -277,7 +279,7 @@ public class ControlRST implements IControl {
 		if (back == true) {
 			this.offset = -25;
 		} else
-			this.offset = 29;
+			this.offset = 25;
 	}
 
 	/**
@@ -300,10 +302,14 @@ public class ControlRST implements IControl {
 			update_LINECTRL_Parameter();
 			setBackwords(false);
 		//	ParkBackwords();
-
-		 exec_LINECTRL_ALGO();
-		//	Testsequenz2();
-			// testSequenz1();
+		//	drive(10,0);
+		exec_LINECTRL_ALGO();
+		/*	if(Button.LEFT.isPressed()){ seq1=true;}
+			if(Button.RIGHT.isPressed()){seq2=true;}
+			if(seq1){LCD.drawString("sequenz1", 0, 0);   testSequenz1();}
+			if(seq2){LCD.drawString("sequenz2", 0, 1);Testsequenz2();}
+			*/
+		// testSequenz1();
 
 			break;
 		case VW_CTRL:
@@ -420,10 +426,10 @@ public class ControlRST implements IControl {
 				turnDegrees = turnDegrees - 360;
 			}
 			// ######## turn until MAth.abs(angle) =1 #####
-			if (turnDegrees > 10) {
-				drive(0, 30);
-			} else if (turnDegrees < -10) {
-				drive(0, -30);
+			if (turnDegrees > 5) {
+				drive(0, 20);
+			} else if (turnDegrees < -5) {
+				drive(0, -20);
 			} else {
 				stop();
 				radsummeL=0;
@@ -647,7 +653,13 @@ public class ControlRST implements IControl {
 			tempSpeedRight = ((rsum / 360D) * 17.59D) / timeR;
 
 			errorL = tempSpeedLeft - (velocityL);
+			if(errorL >3){errorL=3;}
+			if(errorL <-3){errorL=-3;}
+			
 			errorR = tempSpeedRight - (velocityR);
+			if(errorR >3){errorR=3;}
+			if(errorR <-3){errorR=-3;}
+			
 			if (Math.abs(errorL) == 0) {
 				integralL = 0;
 			} else {
@@ -698,7 +710,7 @@ public class ControlRST implements IControl {
 
 		monitor.writeControlComment("drive" + ": " + (int) powerL + ":" + (int) powerR + ":" + (int) pidL + ":"
 				+ (int) pidR + ":" + velocityL + ":" + velocityR + ":" + tempSpeedLeft + ":" + tempSpeedRight + ":"
-				+ errorL + ":" + lsum + ":" + rsum + ":" + timeL);
+				+ errorL + ":" + errorR+ ":" + lsum + ":" + rsum + ":" + timeL);
 	}
 
 	/**
@@ -716,7 +728,7 @@ public class ControlRST implements IControl {
 
 		if (circle1 == false) {
 			if (currentPosition.getHeading() < destination.getHeading()) {
-				drive(6, 22);
+				drive(6, 20);
 			} else {
 				circle1 = true;
 				resetIntegral();
@@ -725,7 +737,7 @@ public class ControlRST implements IControl {
 
 		if (circle1 == true) {
 			if (currentPosition.getHeading() > destination.getHeading() - (float) (Math.PI / 2 - 0.1)) {
-				drive(6, -22);
+				drive(6, -20);
 			} else {
 				mutex_Heading = 0;
 				circle2 = false; // to enable parking in
@@ -759,7 +771,7 @@ public class ControlRST implements IControl {
 
 		if (circle2 == false) {
 			if (currentPosition.getHeading() < destination.getHeading()) {
-				drive(-6, 22);
+				drive(-6, 18);
 			} else {
 				circle2 = true;
 				resetIntegral();
@@ -769,7 +781,7 @@ public class ControlRST implements IControl {
 
 		if (circle2 == true) {
 			if (currentPosition.getHeading() > destination.getHeading() - (float) (Math.PI / 2) + 0.1) {
-				drive(-6, -22);
+				drive(-6, -18);
 			} else {
 				// stop();
 				succesfullyParkedIn = true;
@@ -851,7 +863,7 @@ public class ControlRST implements IControl {
 		}
 		if (driven5 && turn30 && !startReached) {
 			if (!buttonPressed) {
-				Button.ENTER.waitForPressAndRelease();
+				Button.LEFT.waitForPressAndRelease();
 				LCD.clear();
 				LCD.drawString("Linefollower", 0, 0);
 				buttonPressed = true;
@@ -869,7 +881,7 @@ public class ControlRST implements IControl {
 
 		if (startReached == true && !finalDestination) {
 			if (!buttonPressed) {
-				Button.ENTER.waitForPressAndRelease();
+				Button.LEFT.waitForPressAndRelease();
 				buttonPressed = true;
 			} else {
 				update_SETPOSE_Parameter();
@@ -897,14 +909,16 @@ public class ControlRST implements IControl {
 		if (seccondStart && finalDestination && !drive40) {
 			if (mutexReset == 0) {
 				resetAdd();
+				line_distance = 0;
 				mutexReset = 1;
 			}
-			double weg = (radsummeL / 360D) * 17.59D;
+			double weg = (line_distance / 360D) * 17.59D;
 			if (weg < 35) {
-				drive(10, 0);
+				setBackwords(false);
+				exec_LINECTRL_ALGO();
 			} else {
 				drive40 = true;
-				finalDestination = false;
+		//		finalDestination = false;
 			}
 		}
 		if (drive40 && !parking) {
@@ -912,7 +926,7 @@ public class ControlRST implements IControl {
 		}
 		if(drive40&&parking){
 			stop();
-		}
+		} 
 
 	}
 
